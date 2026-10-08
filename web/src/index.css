@@ -1,0 +1,1239 @@
+:root {
+  /* ---- Theme tokens (Palette A — Slate & Azure) --------------------------
+     Every color in the app resolves to one of these. To re-theme, change only
+     this block. Keep in sync with web/src/theme.ts (used for JS-driven colors
+     like SweetAlert dialogs). */
+
+  /* Surfaces */
+  --bg: #0e1117;            /* page + sidebar background */
+  --surface: #161b22;       /* cards, modals, popovers */
+  --surface-2: #1c2330;     /* hovered/elevated rows */
+  --border: #2a3140;        /* borders, dividers, subtle fills */
+  --border-strong: #3a4152; /* stronger border on hover */
+
+  /* Text */
+  --text: #e6edf3;          /* primary text */
+  --muted: #8b98ab;         /* secondary text */
+  --on-accent: #ffffff;     /* text on a colored (accent/status) fill */
+
+  /* Accent scale */
+  --accent: #4f8cff;        /* primary accent */
+  --accent-hover: #3f78e6;  /* accent pressed/hover */
+  --accent-2: #6ea8ff;      /* lighter accent (chart highlight, rotation) */
+  --accent-fg: #cfe0ff;     /* accent-tinted text on --accent-bg */
+  --accent-bg: #23324d;     /* selected/active surface (bluish) */
+
+  /* Status */
+  --success: #3fb950;
+  --success-hover: #359544;
+  --warn: #d29922;
+  --warn-hover: #b17f16;
+  --danger: #f85149;
+  --danger-hover: #dc3b34;
+  --error: var(--danger);   /* alias */
+
+  /* Status tints (translucent glows / badges) */
+  --success-bg: rgba(63, 185, 80, 0.15);
+  --warn-bg: rgba(210, 153, 34, 0.15);
+  --danger-bg: rgba(248, 81, 73, 0.15);
+
+  /* Effects */
+  --hover: rgba(255, 255, 255, 0.06);        /* icon/row hover overlay */
+  --hover-subtle: rgba(255, 255, 255, 0.03); /* faint ghost-button hover */
+  --scrim: rgba(0, 0, 0, 0.6);               /* full-screen dim */
+  --shadow-color: rgba(0, 0, 0, 0.45);       /* drop shadows */
+
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color-scheme: dark;
+}
+
+/* ---- Light theme (Palette A — Slate & Azure, light) ----------------------
+   Applied per-user via data-theme="light" on <html> (see web/src/theme.ts).
+   Only the token values change; every rule resolves through them. */
+:root[data-theme="light"] {
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --border: #d0d7de;
+  --border-strong: #aeb8c2;
+
+  --text: #1c2128;
+  --muted: #5b6673;
+  --on-accent: #ffffff;
+
+  --accent: #2f6fed;
+  --accent-hover: #2560d6;
+  --accent-2: #3b7df0;
+  --accent-fg: #1c3d7a;
+  --accent-bg: #dbe7ff;
+
+  --success: #1f9d57;
+  --success-hover: #178048;
+  --warn: #b07d0a;
+  --warn-hover: #946809;
+  --danger: #d1242f;
+  --danger-hover: #b21e28;
+  --error: var(--danger);
+
+  --success-bg: rgba(31, 157, 87, 0.14);
+  --warn-bg: rgba(176, 125, 10, 0.16);
+  --danger-bg: rgba(209, 36, 47, 0.12);
+
+  --hover: rgba(0, 0, 0, 0.05);
+  --hover-subtle: rgba(0, 0, 0, 0.03);
+  --scrim: rgba(0, 0, 0, 0.4);
+  --shadow-color: rgba(140, 149, 159, 0.25);
+
+  color-scheme: light;
+}
+/* The inline select chevron is a data-URI (can't use a token); darken it for
+   light mode so it stays legible on light fields. */
+:root[data-theme="light"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6673' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+* { box-sizing: border-box; }
+
+a { color: var(--accent); }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.centered {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+/* Standalone cards (login) get a comfortable fixed width that still fits phones. */
+.centered .card { width: 360px; max-width: 100%; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+h1 { margin: 0; font-size: 20px; }
+.muted { color: var(--muted); font-size: 14px; margin: 4px 0; }
+.error { color: var(--error); font-size: 14px; }
+
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.field-label { font-size: 13px; color: var(--muted); }
+.field-hint { font-size: 12px; color: var(--muted); }
+
+/* Two-factor (TOTP) enrollment — a section within the personal-settings card. */
+.totp-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+.totp-section .section-title { margin-top: 0; }
+.totp-setup { margin-top: 8px; }
+.totp-setup-cols { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+.totp-setup-fields { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; flex: 1; min-width: 260px; }
+.totp-setup-fields .totp-secret { align-self: flex-start; }
+.totp-setup-fields > label { align-self: flex-start; }
+.totp-qr { border-radius: 8px; background: var(--on-accent); padding: 8px; }
+.totp-secret { font-family: monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; letter-spacing: 2px; }
+.backup-codes { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; justify-items: center;}
+.backup-codes code { font-family: monospace; font-size: 15px; letter-spacing: 1px; }
+.backup-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.backup-actions button.ghost, .backup-actions button { margin: 0; }
+
+/* Authenticator list */
+.auth-search { width: 100%; margin-bottom: 12px; }
+.auth-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+.auth-list > li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--border); }
+.auth-list > li:first-child { border-top: none; }
+.auth-svc { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.auth-svc .cat-tag { flex: none; }
+/* Name on top, email tucked beneath it. */
+.auth-svc-text { display: flex; flex-direction: column; min-width: 0; }
+.auth-svc-name { font-weight: 600; overflow-wrap: anywhere; }
+.auth-login { font-size: 13px; overflow-wrap: anywhere; }
+.auth-code { cursor: pointer; white-space: nowrap; flex: none; }
+
+/* Audit log (terminal-style copiable text) */
+.audit-terminal {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; margin: 0; overflow: visible;
+  font-family: monospace; font-size: 12.5px; line-height: 1.7; color: var(--text);
+  white-space: pre-wrap; overflow-wrap: anywhere; user-select: text;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.audit-terminal::-webkit-scrollbar { width: 10px; height: 10px; }
+.audit-terminal::-webkit-scrollbar-track { background: transparent; }
+.audit-terminal::-webkit-scrollbar-thumb {
+  background: var(--border); border-radius: 6px; border: 2px solid var(--bg);
+}
+.audit-terminal::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+.audit-terminal::-webkit-scrollbar-corner { background: transparent; }
+.audit-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.audit-filters input { min-width: 220px; flex: 1; }
+.audit-table td, .audit-table th { font-size: 13px; }
+.audit-table .audit-target { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-family: monospace; font-size: 12px; }
+.audit-pager { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; flex-wrap: wrap; gap: 8px; }
+.audit-pager .fab, .audit-pager button { margin-left: 8px; }
+
+/* Account 2FA (TOTP) code display */
+.acct-totp { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.acct-totp-code { font-family: monospace; font-size: 26px; letter-spacing: 3px; background: transparent; border: none; padding: 4px 0; cursor: pointer; }
+.acct-totp-countdown { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 34px; }
+.totp-ring { flex: none; display: block; }
+.acct-totp-add { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.acct-totp-add > label { flex: 1; min-width: 260px; }
+/* Rely on the flex gap for spacing (drop .ghost's default margin). The two
+   buttons are grouped and pushed to the end so they hug the right edge — aligned
+   with the input above — whether they sit inline (desktop) or wrap below it
+   (narrow card). */
+.acct-totp-add button { margin: 0; }
+.acct-totp-add .btn-primary, .acct-totp-add .ghost { display: inline-flex; align-items: center; }
+.acct-totp-add .totp-actions { display: inline-flex; gap: 10px; margin-inline-start: auto; }
+
+/* Password history list */
+.pw-history-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; }
+.pw-history-list li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--border); }
+.pw-history-when { font-size: 13px; }
+
+/* Admin row name: flex so the name / Arabic name / email / 2FA badge lay out in
+   DOM order in both LTR and RTL (inline text bidi-reorders the LTR email into
+   the middle in Arabic), wrapping cleanly with a consistent gap. */
+.admin-name { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; min-width: 0; flex: 1; }
+.admin-name .muted { margin: 0; }
+
+/* 2FA indicator badge in the admins list */
+.mfa-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; color: var(--success);
+  background: var(--success-bg);
+}
+.mfa-badge svg { font-size: 10px; }
+
+/* Deployment settings fields */
+.deploy-field { margin-bottom: 16px; }
+.deploy-field .field-label { display: block; margin-bottom: 6px; color: var(--text); }
+.deploy-field .field-hint { margin-top: 4px; }
+
+input, select, textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  max-width: 100%;
+}
+input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
+select:hover:not(:disabled) { border-color: var(--muted); }
+/* Checkboxes are native controls, not text fields — undo the field chrome. */
+input[type="checkbox"] {
+  appearance: auto;
+  width: 16px; height: 16px; min-width: 16px;
+  padding: 0; border: 0; border-radius: 0; background: none;
+  accent-color: var(--accent); cursor: pointer; vertical-align: middle;
+}
+input[type="range"] {
+  appearance: none; -webkit-appearance: none;
+  cursor: pointer; padding: 0; border: none; height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) 0 var(--pct, 0%), var(--border) var(--pct, 0%) 100%);
+}
+/* In RTL the native range starts on the right, so fill from the right too. */
+[dir="rtl"] input[type="range"] {
+  background: linear-gradient(to left, var(--accent) 0 var(--pct, 0%), var(--border) var(--pct, 0%) 100%);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 15px; height: 15px; border-radius: 50%; background: var(--accent); border: none;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 50%; background: var(--accent); border: none;
+}
+input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: transparent; }
+select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  /* calc-from-left avoids a Chromium RTL quirk with the `right Npx center` syntax */
+  background-position: calc(100% - 12px) center;
+}
+/* Keep the dropdown chevron on the right (like English) even in RTL, while the
+   selected text stays right-aligned. */
+[dir="rtl"] select {
+  direction: ltr;
+  text-align: right;
+  background-position: calc(100% - 12px) center;
+  padding-right: 34px;
+  padding-left: 12px;
+}
+
+button {
+  background: var(--accent);
+  color: var(--on-accent);
+  /* Transparent 1px border so filled and outlined (.ghost) buttons are the same
+     height (a border-none filled button would be 2px shorter than a bordered one). */
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+button.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+button:disabled { opacity: 0.6; cursor: default; }
+button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); margin-left: 8px; }
+button.ghost:hover:not(:disabled):not(.danger-btn):not(.warn-btn):not(.ok-btn) { background: var(--hover-subtle); }
+button.link { background: none; color: var(--accent); padding: 0 6px; }
+button.link:hover:not(:disabled) { text-decoration: underline; }
+
+/* Sidebar layout */
+.layout { display: flex; height: 100vh; overflow: hidden; }
+.sidebar {
+  width: 230px;
+  flex-shrink: 0;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.15s ease;
+  /* Fixed full-height rail; only the category list scrolls (see .side-categories). */
+  overflow: hidden;
+}
+.sidebar nav { flex: 1; min-height: 0; }
+/* The category list scrolls when there are many; Home/All accounts + footer stay put.
+   The scrollbar is hidden and replaced by top/bottom fades (see .side-cat-wrap). */
+.side-cat-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
+.side-categories { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; min-height: 0; scrollbar-width: none; }
+.side-categories::-webkit-scrollbar { display: none; }
+.side-cat-wrap::before, .side-cat-wrap::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 48px;
+  pointer-events: none; z-index: 1; opacity: 0; transition: opacity 0.15s ease;
+}
+.side-cat-wrap::before { top: 0; background: linear-gradient(to bottom, var(--bg) 35%, transparent); }
+.side-cat-wrap::after { bottom: 0; background: linear-gradient(to top, var(--bg) 35%, transparent); }
+.side-cat-wrap.fade-top::before { opacity: 1; }
+.side-cat-wrap.fade-bottom::after { opacity: 1; }
+.sidebar.collapsed { width: 64px; padding: 20px 8px; }
+.sidebar.collapsed .side-item {
+  justify-content: center;
+  width: 42px; height: 42px; padding: 0; margin: 0 auto; border-radius: 10px;
+}
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Mobile top bar with hamburger — hidden on desktop, shown under the breakpoint. */
+.mobile-topbar { display: none; }
+.sidebar-backdrop { display: none; }
+
+/* Circular icon button — the single canonical style for +, upload, scan,
+   category new/close, etc. Self-contained so it works on <button> AND <label>. */
+.fab {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent); color: var(--on-accent); border: none; cursor: pointer;
+  font-size: 22px; line-height: 1; padding: 0;
+  display: grid; place-items: center;
+  transition: transform 0.15s ease;
+}
+.fab:hover { transform: scale(1.12); }
+.fab:disabled { opacity: 0.6; cursor: default; }
+.fab.sm { width: 30px; height: 30px; font-size: 16px; }
+.fab.open { transform: rotate(45deg); background: var(--border); }
+.fab.open:hover { transform: rotate(45deg) scale(1.12); }
+/* Outlined variant (e.g. a close button). */
+.fab.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.fab.ghost:hover { background: var(--hover); }
+.fab.ok { background: var(--success); }
+.sidebar-head {
+  display: flex; justify-content: space-between; align-items: center;
+  color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 0 8px 12px;
+}
+.collapse-btn {
+  background: transparent; border: none; color: var(--accent); cursor: pointer;
+  width: 28px; height: 28px; padding: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease;
+}
+.collapse-btn:hover { background: var(--hover); }
+
+.sidebar nav { display: flex; flex-direction: column; gap: 2px; }
+.side-item {
+  display: flex; align-items: center; gap: 10px;
+  background: transparent; color: var(--text);
+  border: none; border-radius: 8px; padding: 9px 10px;
+  font-size: 14px; text-align: left; cursor: pointer; width: 100%;
+}
+.side-item:hover { background: var(--surface-2); }
+.side-item.active { background: var(--accent-bg); color: var(--accent-fg); }
+
+.page { flex: 1; min-width: 0; padding: 24px; height: 100vh; overflow-y: auto; }
+
+/* Home dashboard tiles */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 1000px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Keep a 2x2 grid on phones (not a single column) with tighter tile padding. */
+@media (max-width: 560px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .tile { padding: 20px 10px; gap: 8px; }
+  .tile-value { font-size: 24px; }
+}
+.tile {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 10px; min-width: 0; padding: 28px 16px;
+}
+.tile.clickable { cursor: pointer; transition: border-color 0.15s ease; }
+.tile.clickable:hover { border-color: var(--accent); }
+.tile-head { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.tile-icon { display: inline-flex; color: var(--accent); }
+.tile-value { font-size: 28px; font-weight: 700; }
+.tile-value-sub { color: var(--text); }
+.tile-hint { font-size: 13px; }
+
+/* Finance */
+.total-row td { border-top: 2px solid var(--border); border-bottom: none; padding-top: 12px; font-size: 15px; }
+.clickable-row { cursor: pointer; }
+.clickable-row:hover td { background: var(--surface-2); }
+.month-detail .cat-list li.clickable-row { transition: background 0.1s ease; }
+.month-detail .cat-list li.clickable-row:hover { background: var(--surface-2); }
+.linechart { display: block; }
+.lc-grid { stroke: var(--border); stroke-width: 1; }
+.lc-axis { fill: var(--muted); font-size: 11px; }
+.lc-line { stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.bc-bar {
+  fill: var(--accent); transition: fill 0.1s ease;
+  transform-box: fill-box; transform-origin: bottom;
+  animation: bc-rise 0.5s ease-out backwards;
+}
+.bc-bar.hov, .bc-bar.sel { fill: var(--accent-2); }
+@keyframes bc-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* Line chart entry: draw the curve, then fade the dots in. */
+.lc-line { animation: lc-draw 0.7s ease-out; }
+@keyframes lc-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.lc-line { stroke-dasharray: 1; }
+.lc-dot { animation: lc-dot-in 0.3s ease-out 0.55s backwards; }
+@keyframes lc-dot-in { from { opacity: 0; } to { opacity: 1; } }
+/* Line/bar chart-type toggle */
+.chart-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.chart-toggle button {
+  background: transparent; color: var(--muted); border: none; border-radius: 0;
+  padding: 7px 12px; display: inline-flex; align-items: center; cursor: pointer;
+}
+.chart-toggle button.active { background: var(--accent); color: var(--on-accent); }
+.lc-dot { fill: var(--accent); transition: r 0.1s ease; }
+.lc-dot.sel { fill: var(--on-accent); stroke: var(--accent); stroke-width: 3; }
+.lc-dot.hov { r: 6; }
+
+/* Styled hover tooltip on the chart */
+.lc-tip { animation: lc-tip-in 0.12s ease-out; }
+.lc-tip-box {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 1;
+  filter: drop-shadow(0 4px 10px var(--shadow-color));
+}
+.lc-tip-label { fill: var(--muted); font-size: 11px; }
+.lc-tip-value { fill: var(--text); font-size: 14px; font-weight: 600; }
+@keyframes lc-tip-in { from { opacity: 0; } to { opacity: 1; } }
+.month-detail { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.month-detail .cat-list li { justify-content: space-between; padding-inline: 12px; }
+.month-detail-head { padding-inline: 12px; }
+.month-detail-head { display: block; padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+.month-block + .month-block { margin-top: 18px; }
+.md-account { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.md-service { font-weight: 500; }
+.md-login, .md-date { font-size: 12px; unicode-bidi: plaintext; }
+
+/* Event calendar */
+.cal-legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+
+/* Mobile month pager (single-month view with prev/next arrows) */
+.cal-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.cal-pager-label { font-weight: 600; font-size: 15px; }
+.cal-nav {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  width: 36px; height: 36px; border-radius: 8px; padding: 0; cursor: pointer; font-size: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.cal-nav:hover:not(:disabled) { border-color: var(--border-strong); }
+.cal-nav:disabled { opacity: 0.4; cursor: default; }
+[dir="rtl"] .cal-nav svg { transform: scaleX(-1); }
+
+/* columns mode (Home): vertical dividers between the 3 months */
+.cal-row.div-columns .cal-month:not(:last-child) { border-inline-end: 1px solid var(--border); padding-inline-end: 24px; }
+
+/* grid mode (Finance, 4 cols): full grid of dividers */
+.cal-row.div-grid { gap: 0; }
+.cal-row.div-grid .cal-month { border-inline-end: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 14px 16px; }
+.cal-row.div-grid .cal-month:nth-child(3n) { border-inline-end: none; }
+.cal-row.div-grid .cal-month:nth-child(n+10) { border-bottom: none; }
+.cal-title { font-weight: 600; margin-bottom: 8px; text-align: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.cal-dow { text-align: center; font-size: 11px; color: var(--muted); padding: 2px 0; }
+.cal-cell {
+  position: relative;
+  aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 12px; border-radius: 6px; gap: 2px;
+}
+.cal-cell.today { outline: 1px solid var(--accent); }
+.cal-cell.has-ev { cursor: default; background: var(--surface-2); }
+.cal-cell.has-ev:hover { background: var(--accent-bg); }
+
+/* Styled hover tooltip for calendar days (replaces the native title) */
+.cal-tip {
+  position: absolute;
+  bottom: 100%; /* touch the cell so hover carries into the tooltip */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  min-width: max-content;
+  max-width: 260px;
+  margin-bottom: 8px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  text-align: left;
+}
+/* Invisible bridge over the margin gap so the mouse can reach the tooltip. */
+.cal-tip::before {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 8px;
+}
+.cal-cell.has-ev:hover .cal-tip { display: flex; animation: lc-tip-in 0.12s ease-out; }
+.cal-tip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--accent);
+}
+.cal-tip-row {
+  display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text);
+  background: none; border: none; cursor: pointer; text-align: left;
+  padding: 5px 7px; border-radius: 6px; width: 100%;
+}
+.cal-tip-row:hover { background: var(--accent-bg); }
+.cal-tip-row .dot { flex-shrink: 0; }
+.cal-dots { display: flex; gap: 2px; }
+.dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+.dot-payment { background: var(--warn); }
+.dot-rotation { background: var(--accent-2); }
+
+/* Standalone password tool (evaluate + generate) */
+.pw-tool { margin-top: 24px; }
+.pw-tool .strength-bar { margin-top: 18px; }
+.gen-len { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); flex: 1; }
+.pw-tool-left .gen-len { flex: 0 0 auto; }
+.pw-tool-row { display: flex; gap: 8px; align-items: center; }
+.pw-tool-input { flex: 1; font-family: monospace; }
+.pw-tool-meta { margin-top: 6px; font-size: 13px; }
+.pw-tool-gen { display: flex; gap: 16px; align-items: center; margin-top: 16px; }
+/* Strength donut */
+.pw-tool-grid { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 40px; align-items: center; }
+.pw-tool-left { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.pw-tool-meta { margin-top: 12px; font-size: 14px; text-align: center; }
+.pw-tool-right { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; }
+/* Reserve a fixed slot so a breach warning appearing doesn't grow the section */
+.pw-tool-breach { min-height: 20px; margin-top: 4px; text-align: center; }
+@media (max-width: 700px) { .pw-tool-grid { grid-template-columns: 1fr; gap: 24px; } }
+.pw-tool-strength { font-weight: 700; text-transform: capitalize; }
+.donut-track { stroke: var(--bg); stroke-width: 10; }
+.donut-val { stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray 0.3s ease; }
+.donut-val.sb-none { stroke: transparent; }
+.donut-val.sb-weak { stroke: var(--danger); }
+.donut-val.sb-fair { stroke: var(--warn); }
+.donut-val.sb-strong { stroke: var(--accent-2); }
+.donut-val.sb-excellent { stroke: var(--success); }
+.donut-text { fill: var(--text); font-size: 15px; font-weight: 700; }
+
+.svc { display: inline-flex; align-items: center; gap: 8px; }
+td.nowrap { white-space: nowrap; }
+/* Bulk-select bar + row checkboxes (Users) */
+.bulk-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; margin-bottom: 8px; min-height: 34px; flex-wrap: wrap;
+}
+.bulk-select { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); cursor: pointer; }
+.bulk-select input { margin: 0; }
+.bulk-actions { display: inline-flex; align-items: center; gap: 12px; }
+.bulk-actions .muted { font-size: 13px; }
+.user-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+/* Inline edit row (name + Arabic name + Save/Cancel) must wrap and shrink on
+   narrow screens instead of overflowing the row. */
+.user-left .icon-input { flex-wrap: wrap; }
+.user-left .icon-input input { flex: 1 1 120px; min-width: 0; }
+.cat-list li.row-selected { background: var(--surface-2); }
+
+.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.status-dot.status-active { background: var(--success); box-shadow: 0 0 0 3px var(--success-bg); }
+.status-dot.status-inactive { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-bg); }
+.status-dot.status-lapsed { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-bg); }
+.status-dot + .status-dot { margin-inline-start: 12px; }
+
+.filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+/* The flex bar supplies the gap; drop the ghost button's own left margin so the
+   Clear button sits evenly with the dropdowns instead of looking detached. */
+.filter-bar .clear-filters { flex-shrink: 0; margin-left: 0; margin-inline-start: 0; }
+.filter-bar .search-input { flex: 1; min-width: 220px; }
+.filter-bar select { flex-shrink: 0; }
+/* Finance filter bar stays compact/left-aligned on desktop. On narrower screens
+   the selects grow to equal widths and wrap evenly (never ragged); on a phone
+   they stack full-width so every control lines up. */
+@media (max-width: 900px) {
+  .fin-filter-bar select { flex: 1 1 150px; min-width: 0; }
+  .fin-filter-bar .clear-filters { flex: 1 1 150px; }
+}
+@media (max-width: 560px) {
+  .fin-filter-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .fin-filter-bar select, .fin-filter-bar .clear-filters { width: 100%; flex: none; }
+}
+.accounts th.center, .accounts td.center { text-align: center; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--text); }
+th .sort-arrow { font-size: 10px; opacity: 0.7; margin-left: 4px; }
+.cat-tag { color: var(--muted); display: inline-flex; }
+
+/* Category settings modal */
+.modal-backdrop {
+  position: fixed; inset: 0; background: var(--scrim);
+  display: grid; place-items: center; z-index: 50; padding: 16px;
+}
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; width: 460px; max-width: 92vw; max-height: 90vh; overflow: auto;
+  scrollbar-width: none; /* Firefox */
+}
+.modal::-webkit-scrollbar { display: none; } /* Chromium/WebKit */
+.modal.wide { width: 620px; }
+/* QR scanner */
+.qr-modal { text-align: center; }
+.qr-video-wrap {
+  position: relative; width: 100%; max-width: 320px; margin: 0 auto;
+  aspect-ratio: 1 / 1; background: #000; border-radius: 10px; overflow: hidden;
+}
+.qr-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.qr-frame {
+  position: absolute; inset: 14%; border: 2px solid var(--accent);
+  border-radius: 10px; pointer-events: none;
+}
+.cat-list { list-style: none; padding: 0; margin: 0 0 16px; }
+.cat-list li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.cat-name { display: inline-flex; align-items: center; gap: 8px; }
+.cat-editor { border-top: 1px solid var(--border); padding-top: 12px; }
+.icon-input { display: flex; gap: 8px; align-items: center; }
+.icon-input input { flex: 1; }
+.icon-preview {
+  width: 40px; height: 40px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+}
+.topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+
+/* On desktop the table is table-layout:fixed at width:100% (colgroup sums to
+   100%), so it fits with no horizontal scroll. Horizontal scrolling is only
+   enabled at the mobile breakpoint (where columns size to content). */
+.table-scroll { -webkit-overflow-scrolling: touch; }
+.accounts { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.accounts th, .accounts td {
+  text-align: start; padding: 10px 12px; border-bottom: 1px solid var(--border);
+  font-size: 14px; overflow-wrap: anywhere; vertical-align: middle;
+}
+.accounts th { color: var(--muted); font-weight: 600; }
+/* In RTL, the row-open chevron should point the other way. */
+[dir="rtl"] .open-btn svg { transform: scaleX(-1); }
+
+/* Icon-only buttons (eye toggle, etc.) */
+.icon-link {
+  background: transparent; border: none; color: var(--muted); cursor: pointer;
+  padding: 2px; display: inline-flex; align-items: center;
+}
+.icon-link:hover { color: var(--accent); }
+.icon-link.danger:hover { color: var(--danger); }
+.att-actions { display: inline-flex; gap: 12px; }
+
+.secret { display: inline-flex; align-items: center; gap: 8px; height: 24px; line-height: 24px; }
+.secret code { background: transparent; padding: 0; line-height: 24px; }
+
+/* Click-to-copy */
+.copyable { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+.copyable:hover { color: var(--accent); }
+.copyable.mono code { background: transparent; padding: 0; }
+.copied-icon { color: var(--success); }
+
+/* Phase 6 — payment status */
+.banner {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warn);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.banner.rotate { border-left-color: var(--accent-2); }
+.pay-overdue { color: var(--danger); }
+.pay-soon { color: var(--warn); }
+.pay-ok { color: var(--text); }
+.chip.pay-overdue { border-color: var(--danger); }
+.chip.pay-soon { border-color: var(--warn); }
+
+/* Phase 7 — vault health */
+.score-row { display: flex; align-items: center; gap: 24px; margin: 8px 0 20px; flex-wrap: wrap; }
+.score { font-size: 44px; font-weight: 700; }
+.score span { font-size: 16px; color: var(--muted); }
+.score-good { color: var(--success); }
+.score-fair { color: var(--warn); }
+.score-weak { color: var(--danger); }
+.score-detail { display: flex; gap: 20px; font-size: 14px; color: var(--muted); flex-wrap: wrap; }
+.badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); }
+.badge-weak { color: var(--danger); border-color: var(--danger); }
+.badge-fair { color: var(--warn); border-color: var(--warn); }
+.badge-strong { color: var(--accent-2); border-color: var(--accent-2); }
+.badge-excellent { color: var(--success); border-color: var(--success); }
+
+/* Phase 8 — attachments */
+.files-row td { background: var(--bg); }
+.inactive-row td { opacity: 0.55; }
+.actions { white-space: nowrap; }
+button.link.danger { color: var(--danger); }
+.badge + .badge { margin-left: 6px; }
+/* In Vault Health, colored text alone conveys the state — drop the pill outline. */
+.health-report .badge { border: none; padding: 0; }
+
+/* Scan skeleton — shimmering placeholders shown while a scan runs. */
+@keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.skeleton {
+  display: inline-block; border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.3s ease-in-out infinite;
+}
+.health-skeleton .hs-top { display: flex; align-items: center; gap: 24px; margin: 8px 0 20px; }
+.hs-score { width: 96px; height: 48px; }
+.hs-summary { display: flex; gap: 20px; }
+.hs-pill { width: 72px; height: 16px; }
+.hs-rows { display: flex; flex-direction: column; gap: 12px; }
+.hs-row { display: grid; grid-template-columns: 2fr 1fr 1.4fr 1fr 1fr 1.2fr; gap: 16px; }
+.hs-row .skeleton { height: 14px; }
+
+/* Open arrow — right-align the chevron flush with the row's right edge. Uses
+   `.accounts td.open-cell` so it outranks `.accounts td { text-align: start }`
+   (equal-specificity `.open-cell` alone lost, leaving the button left-aligned
+   with a gap to its right). Tighter right padding keeps it at the edge without
+   spilling past it. */
+.accounts td.open-cell { text-align: right; padding-left: 4px; padding-right: 12px; }
+.open-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  width: 30px; height: 30px; border-radius: 8px; font-size: 20px;
+  padding: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.open-btn:hover { background: var(--surface-2); }
+
+/* Update-available banner (top of the page content) */
+.update-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 16px; font-size: 14px;
+}
+.update-banner-text { font-weight: 600; }
+.update-banner-actions { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.update-banner-link { color: var(--accent); text-decoration: none; }
+.update-banner-link:hover { text-decoration: underline; }
+.update-banner-dl { text-decoration: none; display: inline-flex; align-items: center; }
+.update-banner-close {
+  background: transparent; border: none; color: var(--muted); cursor: pointer;
+  font-size: 20px; line-height: 1; padding: 0 4px;
+}
+.update-banner-close:hover { color: var(--text); }
+
+/* Detail page */
+.back { display: inline-block; margin-bottom: 12px; font-size: 14px; }
+.detail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+.detail-head h1 { display: inline-flex; align-items: center; gap: 10px; }
+.fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 32px; margin: 0; }
+.fields dd .secret { max-width: 100%; }
+.fields .copyable { overflow-wrap: anywhere; }
+.fields .full { grid-column: 1 / -1; }
+.fields dt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+.fields dd { margin: 0; font-size: 15px; }
+.detail-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; flex-wrap: wrap; }
+.detail-actions-group { display: flex; gap: 8px; flex-wrap: wrap; }
+button.danger-btn { background: var(--danger); border-color: var(--danger); color: var(--on-accent); }
+button.danger-btn:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
+button.warn-btn { background: var(--warn); border-color: var(--warn); color: var(--on-accent); }
+button.warn-btn:hover { background: var(--warn-hover); border-color: var(--warn-hover); }
+button.ok-btn { background: var(--success); border-color: var(--success); color: var(--on-accent); }
+button.ok-btn:hover { background: var(--success-hover); border-color: var(--success-hover); }
+.attachments { padding: 0; }
+.att-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+/* padding-top (not margin) so it can't collapse with .att-head's margin-bottom —
+   this is what makes the heading→content gap match the Payment History table. */
+.att-list { list-style: none; padding: 10px 0 0; margin: 0; }
+.invoice-row { display: flex; gap: 8px; align-items: center; }
+.invoice-row select { flex: 1; min-width: 0; }
+/* Amount + inline currency dropdown (no separate currency label). */
+.amount-row { display: flex; gap: 8px; align-items: center; }
+.amount-row input { flex: 1; min-width: 0; }
+.amount-row select { flex: 0 0 auto; width: auto; }
+.att-list li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+
+/* Payment-history ledger: the notes list shown beneath the table. */
+.pay-notes { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.pay-notes li { color: var(--text); }
+.payments-table .total-row td { font-size: 14px; }
+
+.add-form { display: flex; flex-direction: column; gap: 12px; }
+.add-form .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.add-form .grid .full-field { grid-column: 1 / -1; }
+.form-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Settings area with its own text sub-navigation. The page scrolls (one edge
+   scrollbar); the sub-nav is pinned with sticky within that scroll. */
+.settings-wrap { display: flex; gap: 24px; align-items: flex-start; }
+/* The fade wrapper is transparent to layout on desktop — .subnav stays the flex
+   item (sticky rail). On mobile it becomes a positioned block for the edge fades. */
+.subnav-wrap { display: contents; }
+.subnav {
+  display: flex; flex-direction: column; gap: 2px; width: 160px; flex-shrink: 0;
+  position: sticky; top: 0; align-self: flex-start;
+}
+.subnav-title { font-size: 20px; font-weight: 700; padding: 0 8px 12px; }
+.subnav a {
+  color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 8px; font-size: 14px;
+}
+.subnav a:hover { background: var(--surface-2); color: var(--text); }
+.subnav a.active { background: var(--accent-bg); color: var(--accent-fg); }
+.settings-content { flex: 1; min-width: 0; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.two-col > :first-child { border-right: 1px solid var(--border); padding-right: 24px; }
+@media (max-width: 900px) {
+  .two-col { grid-template-columns: 1fr; }
+  .two-col > :first-child { border-right: none; padding-right: 0; }
+}
+.inline-field { display: flex; gap: 12px; align-items: center; font-size: 14px; }
+.inline-add { display: flex; gap: 8px; align-items: center; max-width: 420px; }
+/* min-width:0 lets the inputs shrink below their intrinsic size so the row (two
+   inputs + the round add button) never overflows on narrow screens. */
+.inline-add input { flex: 1; min-width: 0; }
+.btn-like {
+  background: var(--accent); color: var(--on-accent); border-radius: 8px; padding: 8px 14px;
+  font-size: 14px; cursor: pointer; display: inline-block;
+}
+.btn-like:hover { background: var(--accent-hover); }
+.section-title { margin: 0 0 12px; font-size: 16px; }
+
+/* Drag handle for reordering */
+.drag-handle { color: var(--muted); cursor: grab; display: inline-flex; }
+.drag-handle:active { cursor: grabbing; }
+.cat-list li[draggable="true"] { cursor: grab; }
+.cat-list li.dragging { opacity: 0.4; background: var(--surface-2); border-radius: 8px; }
+.cat-list li.drag-over { box-shadow: inset 0 2px 0 0 var(--accent); }
+
+/* Password strength meter colors */
+.strength-weak { color: var(--danger); }
+.strength-fair { color: var(--warn); }
+.strength-strong { color: var(--accent-2); }
+.strength-excellent { color: var(--success); }
+.danger-text { color: var(--danger); }
+
+/* Website link on the detail header */
+.website-link { color: var(--accent); font-size: 13px; text-decoration: none; }
+.detail-head .website-link { display: block; margin-top: 4px; }
+.website-link:hover { text-decoration: underline; }
+
+/* Seats editor + display */
+.seats { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.seat-row { display: flex; gap: 8px; align-items: center; width: 100%; }
+.seat-row input { flex: 1; }
+
+/* Styled type-to-filter combobox */
+.combo { position: relative; flex: 1; }
+.combo input { width: 100%; }
+.combo-list {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 20; margin: 4px 0 0; padding: 4px;
+  list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  max-height: 220px; overflow: auto; box-shadow: 0 8px 24px var(--shadow-color);
+}
+.combo-list li { padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.combo-list li:hover, .combo-list li.active { background: var(--accent-bg); }
+.seat-list { margin: 0; padding-left: 18px; }
+.seat-list li { padding: 2px 0; }
+.pw-row { display: flex; gap: 8px; }
+.pw-row input { flex: 1; }
+
+/* Masked password input with a leading peek eye */
+.seat-ar { width: 160px; flex-shrink: 0; }
+
+/* Language switcher in sidebar */
+.side-lang { display: flex; align-items: center; gap: 8px; padding: 8px 10px; color: var(--text); }
+.side-lang select { flex: 1; }
+
+/* Settings toggle row */
+.switch-row { display: inline-flex; flex-direction: row; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; }
+/* Sliding toggle switch — styled from a plain checkbox so no markup changes are
+   needed. Colors come from theme tokens, so it adapts to light and dark modes. */
+.switch-row input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  position: relative; flex: none; margin: 0; cursor: pointer;
+  width: 38px; height: 22px; border-radius: 999px;
+  background: var(--border-strong);
+  transition: background 0.15s ease;
+}
+.switch-row input[type="checkbox"]::before {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--on-accent);
+  box-shadow: 0 1px 2px var(--shadow-color, rgba(0, 0, 0, 0.3));
+  transition: transform 0.15s ease;
+}
+.switch-row input[type="checkbox"]:checked { background: var(--accent); }
+.switch-row input[type="checkbox"]:checked::before { transform: translateX(16px); }
+.switch-row input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.switch-row input[type="checkbox"]:disabled { opacity: 0.5; cursor: default; }
+/* RTL (Arabic): knob rests on the right and slides left when on. */
+[dir="rtl"] .switch-row input[type="checkbox"]::before { left: auto; right: 2px; }
+[dir="rtl"] .switch-row input[type="checkbox"]:checked::before { transform: translateX(-16px); }
+
+/* Theme (light/dark) toggle — a sun/moon switch. The knob carries the current
+   mode's icon and slides between sides; colors use tokens for both themes. */
+.theme-toggle {
+  position: relative; flex: none; padding: 0; cursor: pointer;
+  width: 52px; height: 26px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.theme-toggle.dark { background: var(--accent-bg); border-color: var(--accent); }
+.theme-toggle-knob {
+  position: absolute; top: 2px; left: 2px; width: 22px; height: 22px;
+  border-radius: 50%; background: var(--on-accent);
+  display: grid; place-items: center;
+  box-shadow: 0 1px 3px var(--shadow-color, rgba(0, 0, 0, 0.3));
+  transition: transform 0.18s ease;
+}
+.theme-toggle.dark .theme-toggle-knob { transform: translateX(26px); }
+.theme-toggle-knob svg { width: 12px; height: 12px; }
+.theme-toggle.light .theme-toggle-knob svg { color: #f5a623; } /* warm sun */
+.theme-toggle.dark .theme-toggle-knob svg { color: #394150; } /* moon on the white knob */
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[dir="rtl"] .theme-toggle-knob { left: auto; right: 2px; }
+[dir="rtl"] .theme-toggle.dark .theme-toggle-knob { transform: translateX(-26px); }
+/* A hint with a dashed underline signalling a hover tooltip. */
+.help-hint { text-decoration: underline dashed; text-underline-offset: 3px; text-decoration-color: var(--muted); cursor: help; }
+
+/* Backup schedule controls */
+/* Backup schedule: uniform-width fields, each with its label above a full-width
+   control (left-aligned), and the action button aligned to their baseline. */
+.backup-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.backup-controls .inline-field { margin: 0; align-items: stretch; gap: 4px; width: 150px; }
+.backup-controls .inline-field > span { color: var(--muted); }
+.backup-controls .inline-field select,
+.backup-controls .inline-field input { width: 100%; }
+
+/* RTL adjustments (Arabic) */
+[dir="rtl"] .pw-eye { right: auto; left: 8px; }
+[dir="rtl"] .pw-input input { padding-right: 12px; padding-left: 34px; }
+
+/* Organization settings */
+.org-row { display: flex; align-items: flex-end; gap: 18px; margin-bottom: 4px; }
+.org-name-field { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.org-name-field input { width: 100%; }
+.org-logo-wrap { position: relative; flex-shrink: 0; }
+.org-logo {
+  position: relative;
+  width: 84px; height: 84px; border-radius: 12px; padding: 0;
+  border: 1px solid var(--border); background: var(--bg); cursor: pointer;
+  display: grid; place-items: center; overflow: hidden;
+}
+.org-logo img { width: 100%; height: 100%; object-fit: contain; }
+.org-logo-empty { color: var(--muted); font-size: 30px; display: inline-flex; }
+.org-logo-overlay {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: var(--scrim); color: var(--on-accent); font-size: 22px;
+  opacity: 0; transition: opacity 0.15s ease;
+}
+.org-logo:hover .org-logo-overlay { opacity: 1; }
+.org-logo-remove {
+  position: absolute; top: -6px; right: -6px;
+  width: 22px; height: 22px; border-radius: 50%; padding: 0;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--muted);
+  display: grid; place-items: center; cursor: pointer; font-size: 11px;
+}
+.org-logo-remove:hover { color: var(--danger); border-color: var(--danger); }
+[dir="rtl"] .org-logo-remove { right: auto; left: -6px; }
+
+/* SweetAlert2 checkbox input themed for our dark dialogs */
+/* Themed inline checkbox for SweetAlert dialogs. No `display` override here —
+   SweetAlert toggles display between flex (shown) and none (hidden); overriding
+   it would force an empty checkbox to appear in every dialog and toast. */
+.swal2-checkbox {
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  background: transparent !important;
+  color: var(--muted) !important;
+  font-size: 14px;
+  gap: 8px;
+}
+.swal2-checkbox input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0 !important; flex-shrink: 0; }
+.swal2-checkbox .swal2-label { margin: 0 !important; display: inline; }
+
+/* Inline checkbox + label used inside custom SweetAlert html (beats SweetAlert's
+   own input styling, which renders inputs as full-width blocks). */
+.inline-check {
+  display: flex !important; align-items: center; justify-content: center;
+  gap: 8px; color: var(--muted); font-size: 14px; cursor: pointer;
+  text-align: start; margin-top: 4px;
+}
+.inline-check input[type="checkbox"] {
+  display: inline-block !important; width: 16px !important; height: 16px !important;
+  margin: 0 !important; padding: 0 !important; flex: 0 0 auto; accent-color: var(--accent);
+}
+.inline-check span { display: inline !important; }
+
+/* Org name above the app name in the sidebar header */
+.sidebar-title { display: flex; flex-direction: column; line-height: 1.3; }
+.sidebar-org { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+/* Org branding on the login card */
+.login-logo { display: block; max-width: 120px; max-height: 120px; object-fit: contain; margin: 0 auto 12px; }
+.login-org { text-align: center; font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+
+.pw-input { position: relative; display: block; flex: 1; }
+.pw-input input { width: 100%; padding-right: 34px; }
+.pw-eye {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  display: inline-flex; padding: 2px;
+}
+.pw-eye:hover { color: var(--accent); }
+
+/* ==========================================================================
+   Responsive — tablet and mobile. The desktop layout is a fixed sidebar rail
+   beside a scrolling page; below 820px the rail becomes an off-canvas drawer
+   opened from a mobile top bar, and multi-column sections collapse to one.
+   ========================================================================== */
+@media (max-width: 820px) {
+  /* Stack: top bar + page; the sidebar overlays on demand. */
+  .layout { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
+
+  .mobile-topbar {
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 45;
+    padding: 10px 14px;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  .mobile-topbar .hamburger {
+    background: transparent; border: none; color: var(--text); cursor: pointer;
+    width: 40px; height: 40px; border-radius: 8px; padding: 0; font-size: 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .mobile-topbar .hamburger:hover { background: var(--surface-2); }
+  .mobile-title { font-weight: 700; font-size: 16px; }
+
+  /* Off-canvas drawer */
+  .sidebar {
+    position: fixed; top: 0; bottom: 0; left: 0; height: 100dvh; width: 264px;
+    z-index: 60; transform: translateX(-100%); transition: transform 0.22s ease;
+    box-shadow: 0 0 40px var(--shadow-color);
+  }
+  .sidebar.open { transform: translateX(0); }
+  [dir="rtl"] .sidebar { left: auto; right: 0; transform: translateX(100%); }
+  [dir="rtl"] .sidebar.open { transform: translateX(0); }
+
+  .sidebar-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 55;
+    background: var(--scrim);
+  }
+
+  /* Page scrolls with the document instead of its own overflow box. */
+  .page { height: auto; overflow: visible; padding: 16px; }
+
+  /* Settings/Finance: sub-nav becomes a horizontal scroller above the content.
+     The wrapper must be a block (not a flex column) — a flex item won't contain
+     a horizontally-scrolling table and its content width leaks out, overflowing
+     the whole page. As a block, .settings-content fills the width and its
+     .table-scroll behaves exactly like the All Accounts page. */
+  .settings-wrap { display: block; }
+  .subnav-wrap { display: block; position: relative; margin-bottom: 16px; }
+  .subnav {
+    flex-direction: row; width: auto; position: static;
+    overflow-x: auto; gap: 4px; padding-bottom: 4px; margin: 0;
+    scrollbar-width: none;
+  }
+  /* A scroll container nested in flex needs min-width:0 to actually shrink.
+     Enable horizontal scrolling here (mobile only) — columns size to content. */
+  .table-scroll { min-width: 0; overflow-x: auto; }
+  .subnav::-webkit-scrollbar { display: none; }
+  .subnav a { white-space: nowrap; }
+  .subnav-title { display: none; }
+  /* Edge fades indicating more scrollable tabs (mirrors the sidebar). */
+  .subnav-wrap::before, .subnav-wrap::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 28px;
+    pointer-events: none; z-index: 1; opacity: 0; transition: opacity 0.15s ease;
+  }
+  .subnav-wrap::before { left: 0; background: linear-gradient(to right, var(--bg), transparent); }
+  .subnav-wrap::after { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
+  .subnav-wrap.fade-left::before { opacity: 1; }
+  .subnav-wrap.fade-right::after { opacity: 1; }
+
+  /* Two-up detail fields and add-form grids collapse to one column. */
+  .fields { grid-template-columns: 1fr; gap: 12px; }
+  .add-form .grid { grid-template-columns: 1fr; }
+
+  /* Calendars: single month with the pager label as the heading. Center the
+     pager (‹ Month ›) and cap the grid so the month sits centered in the card. */
+  .cal-row { grid-template-columns: 1fr; gap: 16px; justify-items: center; }
+  .cal-title { display: none; }
+  .cal-pager { justify-content: center; gap: 24px; }
+  .cal-month { width: 100%; max-width: 420px; }
+
+  /* The greeting lives in the mobile top bar, so hide the page's own copy. */
+  .home-greeting { display: none; }
+
+  /* Vault-health scan skeleton mirrors a 6-column table; collapse it so the
+     shimmer placeholders fit the phone width instead of overflowing. */
+  .hs-row { grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+  .hs-top { flex-wrap: wrap; gap: 16px; justify-content: center; }
+  .hs-summary { flex-wrap: wrap; gap: 12px; justify-content: center; }
+
+  /* Center the vault-health score and its counts on a phone. */
+  .score-row { justify-content: center; text-align: center; }
+  .score-detail { justify-content: center; }
+
+  /* Let columns size to their content and the table scroll horizontally, rather
+     than crushing every column to fit the viewport. max-content makes each
+     column size to its content (ignoring the desktop colgroup percentages) so
+     the layout is consistent across all account tables. Only the Users column
+     wraps (its comma-separated names); every other column stays on one line. */
+  .accounts { table-layout: auto; width: max-content; min-width: 100%; }
+  .accounts th, .accounts td { white-space: nowrap; overflow-wrap: normal; }
+  .accounts td.wrap-cell { white-space: normal; overflow-wrap: anywhere; min-width: 150px; max-width: 190px; }
+  /* The Finance colgroup gives Service/Login 22% each, which under content
+     sizing leaves wasteful gaps; ignore it so all columns size to their content
+     and the table scrolls horizontally like the accounts table. */
+  .fin-accounts col { width: auto !important; }
+
+  /* On touch, tapping a day toggles a bottom sheet (hover isn't reliable and a
+     centered bubble runs off the narrow viewport). Suppress the hover tooltip
+     and show the sheet only for the tapped (.open) day. */
+  .cal-cell.has-ev { cursor: pointer; }
+  .cal-cell.has-ev:hover .cal-tip { display: none; }
+  .cal-cell.has-ev.open .cal-tip {
+    display: flex; position: fixed; inset: auto 16px 16px 16px; top: auto;
+    transform: none; margin: 0; max-width: none; width: auto; z-index: 65;
+    white-space: normal; box-shadow: 0 8px 40px var(--shadow-color);
+  }
+  .cal-tip::before, .cal-tip::after { display: none; }
+  .cal-tip-row { padding: 10px 8px; }
+  .cal-sheet-backdrop { position: fixed; inset: 0; z-index: 64; }
+
+  /* Fit all detail actions on one row: flatten the two groups so every button
+     is an equal-width flex item (display:contents removes the group wrappers). */
+  .detail-actions { flex-wrap: nowrap; gap: 8px; }
+  .detail-actions-group { display: contents; }
+  .detail-actions button { flex: 1; padding: 9px 6px; white-space: nowrap; margin: 0; }
+
+  /* Let Clear grow to fill the leftover space on its filter-bar row. */
+  .filter-bar .clear-filters { flex: 1; }
+
+  /* Organization row: logo + name on top, Save button full-width below (on
+     desktop it stays inline to the right of the field). */
+  .org-row { flex-wrap: wrap; }
+  .org-row button[type="submit"] { flex: 1 0 100%; }
+
+  /* Keep the Finance "Accounts" heading and its controls on one row (they fit)
+     rather than wrapping the controls to a second line. */
+  .fin-topbar { flex-wrap: nowrap; gap: 8px; }
+  .fin-topbar .section-title { flex: none; }
+  .fin-topbar-actions { min-width: 0; gap: 6px !important; flex-wrap: nowrap; }
+  .fin-topbar-actions select { min-width: 0; padding-left: 8px; padding-right: 26px; }
+}
+
+@media (max-width: 480px) {
+  .card { padding: 16px; }
+  .page { padding: 12px; }
+  .score { font-size: 36px; }
+  .tile-value { font-size: 24px; }
+  h1 { font-size: 18px; }
+  /* Full-width primary actions read better on a phone. */
+  .form-actions button, .backup-actions button { flex: 1; }
+}
+
+/* Tablet tier (821–1300px): the desktop chrome (persistent sidebar) stays, but
+   the sidebar eats ~240px, so the fixed-percentage tables get cramped and the
+   3-up calendar squeezes its day columns. Reuse the mobile treatment for JUST
+   the tables and calendar here — columns size to content and scroll, and the
+   calendar shows one month with a pager (see EventCalendar's matching 1300px
+   media query). The full mobile layout (drawer sidebar, etc.) still waits for
+   820px. */
+@media (min-width: 821px) and (max-width: 1300px) {
+  /* Tables: size columns to content and scroll horizontally instead of crushing. */
+  .table-scroll { overflow-x: auto; min-width: 0; }
+  .accounts { table-layout: auto; width: max-content; min-width: 100%; }
+  .accounts th, .accounts td { white-space: nowrap; overflow-wrap: normal; }
+  .accounts td.wrap-cell { white-space: normal; overflow-wrap: anywhere; min-width: 150px; max-width: 190px; }
+  .fin-accounts col { width: auto !important; }
+
+  /* Calendar: single month with a centered pager (matches the mobile view the
+     JS switches to at this width). */
+  .cal-row { grid-template-columns: 1fr; gap: 16px; justify-items: center; }
+  .cal-title { display: none; }
+  .cal-pager { justify-content: center; gap: 24px; }
+  .cal-month { width: 100%; max-width: 420px; }
+
+  /* Day details open as a bottom sheet on tap (the JS treats this width as
+     mobile), so mirror the mobile tooltip-sheet styling. */
+  .cal-cell.has-ev { cursor: pointer; }
+  .cal-cell.has-ev:hover .cal-tip { display: none; }
+  .cal-cell.has-ev.open .cal-tip {
+    display: flex; position: fixed; inset: auto 16px 16px 16px; top: auto;
+    transform: none; margin: 0; max-width: none; width: auto; z-index: 65;
+    white-space: normal; box-shadow: 0 8px 40px var(--shadow-color);
+  }
+  .cal-tip::before, .cal-tip::after { display: none; }
+  .cal-tip-row { padding: 10px 8px; }
+  .cal-sheet-backdrop { position: fixed; inset: 0; z-index: 64; }
+}

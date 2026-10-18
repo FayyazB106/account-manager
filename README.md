@@ -101,7 +101,13 @@ same folder). They exit immediately (they don't start the server). Per install:
 - **Linux / raw binary:** run `./account-manager …` from the folder that holds its
   `data/` (or set `DATA_DIR` to an absolute path).
 
-The examples below use the Unix `./account-manager` form:
+The examples below use the Unix `./account-manager` form. **On Windows, replace
+`./account-manager` with `account-manager.exe` in Command Prompt, or
+`.\account-manager.exe` in PowerShell** For example:
+
+```bat
+account-manager.exe -reset-admin -email you@example.com -reset-password
+```
 
 **Key management:**
 ```bash

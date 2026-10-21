@@ -13,7 +13,9 @@ import { Modal } from "../components/Modal";
 
 export function CategoriesSettings() {
   const { t } = useTranslation();
-  const { categories, refreshCategories, refresh, arabicEnabled } = useLayout();
+  const { categories, refreshCategories, refresh, arabicEnabled, lang } = useLayout();
+  const primaryName = (c: Category) => (lang === "ar" && c.name_ar ? c.name_ar : c.name);
+  const secondaryName = (c: Category) => (lang === "ar" ? (c.name_ar ? c.name : undefined) : c.name_ar);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -90,8 +92,8 @@ export function CategoriesSettings() {
               <span className="drag-handle" title={t("categories.dragToReorder")}>
                 <FaGripVertical />
               </span>
-              <Icon name={c.icon} /> {c.name}
-              {arabicEnabled && c.name_ar && <span className="muted"> · {c.name_ar}</span>}
+              <Icon name={c.icon} /> {primaryName(c)}
+              {arabicEnabled && secondaryName(c) && <span className="muted"> · {secondaryName(c)}</span>}
             </span>
             <span className="att-actions">
               <IconButton title={t("common.edit")} onClick={() => startEdit(c)}><FaPencilAlt /></IconButton>

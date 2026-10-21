@@ -38,11 +38,14 @@ npx tsc --noEmit   # type-check only
 - **i18n**: English + Arabic via react-i18next, RTL layout, localized
   dates/numbers. See the memory rule — every new user-facing string needs `en`
   **and** `ar` keys in [`src/locales`](src/locales).
+  The emails the *server* sends are worded separately, in both languages, in
+  `internal/report/messages.go`.
 
 ## Project layout
 
 - `src/api.ts` — typed client for the Go API.
 - `src/i18n.ts`, `src/locales/{en,ar}.json` — translations.
+- `src/settingsSearch.ts`, `src/components/SettingsSearch.tsx` — the Settings search: a curated index of every section/setting (EN + AR at once, with synonyms in `settingsSearch.kw.*`). Add new settings there and give their section an `id="s-…"` so the search can jump to it.
 - `src/components/` — shared UI (Layout, Sidebar, Button, Combobox, …).
 - `src/pages/` — routed pages (Home, Accounts, Finance*, Settings*, Health, …).
 - `src/account-ui.tsx` — account row / detail / form building blocks.

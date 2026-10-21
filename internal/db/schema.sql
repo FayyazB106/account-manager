@@ -110,8 +110,26 @@ CREATE TABLE admin (
     wrapped_vault_key  BLOB NOT NULL,
     totp_secret        BLOB,                       -- encrypted TOTP secret (NULL = not set up)
     totp_enabled       INTEGER NOT NULL DEFAULT 0, -- 1 once enrollment is confirmed
+    monthly_report     INTEGER NOT NULL DEFAULT 0, -- 1 = email me last month's payment history on the 1st
+    monthly_report_last TEXT   NOT NULL DEFAULT '', -- "YYYY-MM" of the last report sent (or the baseline at opt-in)
+    payment_reminders  INTEGER NOT NULL DEFAULT 0, -- 1 = email me daily while a payment is due within 7 days or overdue
+    payment_reminder_last TEXT NOT NULL DEFAULT '', -- "YYYY-MM-DD" of the last reminder sent (or the baseline at opt-in)
+    rotation_reminders INTEGER NOT NULL DEFAULT 0, -- 1 = email me daily while a password is due for rotation within 7 days or overdue
+    rotation_reminder_last TEXT NOT NULL DEFAULT '', -- "YYYY-MM-DD" of the last rotation reminder sent (or the baseline at opt-in)
+    upcoming_payments  INTEGER NOT NULL DEFAULT 0, -- 1 = email me the month's upcoming payments on the 1st
+    upcoming_payments_last TEXT NOT NULL DEFAULT '', -- "YYYY-MM" of the last upcoming-payments email handled (or the baseline at opt-in)
+    breach_alerts      INTEGER NOT NULL DEFAULT 0, -- 1 = email me right away when a scan finds a newly breached password
+    language           TEXT    NOT NULL DEFAULT 'en', -- the admin's UI language ("en"/"ar"); emails to them are written in it
     created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- breach_alert_pending: breach alerts that could not be delivered yet (mail server
+-- unreachable); retried until sent. Rows vanish with the admin or the account.
+CREATE TABLE breach_alert_pending (
+    admin_id   TEXT NOT NULL REFERENCES admin (id) ON DELETE CASCADE,
+    account_id TEXT NOT NULL REFERENCES account (id) ON DELETE CASCADE,
+    PRIMARY KEY (admin_id, account_id)
 );
 
 -- admin_backup_code: single-use recovery codes for MFA (hashed).

@@ -9,6 +9,7 @@ import (
 
 	"github.com/FayyazB106/account-manager/internal/backup"
 	"github.com/FayyazB106/account-manager/internal/breach"
+	"github.com/FayyazB106/account-manager/internal/report"
 	"github.com/FayyazB106/account-manager/internal/store"
 	"github.com/FayyazB106/account-manager/internal/update"
 )
@@ -28,6 +29,7 @@ type Server struct {
 	Refresh     *store.RefreshStore
 	Backups     *backup.Manager
 	Breach      *breach.Monitor
+	Reports     *report.Service // SMTP config + monthly payment-history email
 	JWTSecret   []byte
 	KeyPath     string // sealed master-key file path (to detect setup vs locked state)
 
@@ -44,6 +46,11 @@ type Server struct {
 	// keyMu guards it because it can be set at runtime by /setup or /unlock.
 	keyMu     sync.RWMutex
 	MasterKey []byte
+
+	// langSeen remembers the last language noted for each admin (see noteLanguage),
+	// so the database is written only when it actually changes.
+	langMu   sync.Mutex
+	langSeen map[string]string
 }
 
 // ready reports whether the vault is unlocked (the master key is available).
@@ -116,6 +123,21 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /profile/totp/setup", s.requireAuth(s.setupTOTP))
 	mux.HandleFunc("POST /profile/totp/enable", s.requireAuth(s.enableTOTP))
 	mux.HandleFunc("POST /profile/totp/disable", s.requireAuth(s.disableTOTP))
+	mux.HandleFunc("PUT /profile/monthly-report", s.requireAuth(s.setMonthlyReport))
+	mux.HandleFunc("PUT /profile/payment-reminders", s.requireAuth(s.setPaymentReminders))
+	mux.HandleFunc("PUT /profile/rotation-reminders", s.requireAuth(s.setRotationReminders))
+	mux.HandleFunc("PUT /profile/breach-alerts", s.requireAuth(s.setBreachAlerts))
+	mux.HandleFunc("PUT /profile/upcoming-payments", s.requireAuth(s.setUpcomingPayments))
+
+	mux.HandleFunc("GET /smtp", s.requireAuth(s.getSMTP))
+	mux.HandleFunc("PUT /smtp", s.requireAuth(s.saveSMTP))
+	mux.HandleFunc("PUT /smtp/enabled", s.requireAuth(s.setSMTPEnabled))
+	mux.HandleFunc("POST /smtp/test", s.requireAuth(s.testSMTP))
+	mux.HandleFunc("POST /report/preview", s.requireAuth(s.previewReport))
+	mux.HandleFunc("POST /reminder/preview", s.requireAuth(s.previewReminder))
+	mux.HandleFunc("POST /rotation/preview", s.requireAuth(s.previewRotation))
+	mux.HandleFunc("POST /breach-alert/preview", s.requireAuth(s.previewBreachAlert))
+	mux.HandleFunc("POST /upcoming/preview", s.requireAuth(s.previewUpcoming))
 
 	mux.HandleFunc("GET /categories", s.requireAuth(s.listCategories))
 	mux.HandleFunc("POST /categories", s.requireAuth(s.createCategory))
@@ -123,7 +145,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("PUT /categories/{id}", s.requireAuth(s.updateCategory))
 	mux.HandleFunc("DELETE /categories/{id}", s.requireAuth(s.deleteCategory))
 
-	mux.HandleFunc("GET /version", s.requireAuth(s.getVersion))       // current + latest release
+	mux.HandleFunc("GET /version", s.requireAuth(s.getVersion))        // current + latest release
 	mux.HandleFunc("POST /update/check", s.requireAuth(s.checkUpdate)) // force a fresh check
 	mux.HandleFunc("POST /update/apply", s.requireAuth(s.applyUpdate)) // desktop: download+verify+run installer
 
@@ -216,56 +238,65 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 // errorCodes maps each English error message to a stable slug the client can
 // translate. Keep in sync with `errors.*` keys in the web locale files.
 var errorCodes = map[string]string{
-	"USD is the base currency and can't be changed":                        "usd_base_immutable",
-	"a category with that name already exists":                             "category_exists",
-	"account has no payment date or billing period to extend":              "extend_unavailable",
-	"account must be inactive before it can be deleted":                    "account_must_be_inactive",
-	"account not found":                                                    "account_not_found",
-	"admin not found":                                                      "admin_not_found",
-	"an admin with that email already exists":                              "admin_exists",
-	"attachment not found":                                                 "attachment_not_found",
-	"billing_period_months must be 0 or greater":                          "billing_invalid",
+	"USD is the base currency and can't be changed":           "usd_base_immutable",
+	"a category with that name already exists":                "category_exists",
+	"account has no payment date or billing period to extend": "extend_unavailable",
+	"account must be inactive before it can be deleted":       "account_must_be_inactive",
+	"account not found":                          "account_not_found",
+	"admin not found":                            "admin_not_found",
+	"an admin with that email already exists":    "admin_exists",
+	"attachment not found":                       "attachment_not_found",
+	"billing_period_months must be 0 or greater": "billing_invalid",
 	"cannot delete a category that still has accounts; move or remove them first": "category_in_use",
-	"cannot delete the last admin":                                         "last_admin",
-	"category not found":                                                   "category_not_found",
-	"currency not found":                                                   "currency_not_found",
-	"current password is incorrect":                                        "current_password_wrong",
-	"email is required":                                                    "email_required",
-	"email required and password must be at least 12 characters":           "email_and_password_required",
-	"file too large or invalid form":                                       "file_invalid",
-	"internal error":                                                       "internal",
-	"invalid code":                                                         "invalid_code",
-	"invalid TOTP secret":                                                  "totp_secret_invalid",
-	"invalid email or password":                                            "invalid_credentials",
-	"not initialized":                                                      "not_initialized",
-	"payment not found":                                                    "payment_not_found",
-	"paid_on must be YYYY-MM-DD":                                           "paid_on_invalid",
-	"amount is required":                                                   "amount_required",
-	"already initialized":                                                  "already_initialized",
-	"the vault is not locked":                                              "not_locked",
-	"incorrect passphrase":                                                 "incorrect_passphrase",
-	"passphrase must be at least 8 characters":                            "passphrase_short",
-	"two-factor is not set up":                                             "totp_not_setup",
-	"invalid or expired token":                                             "token_invalid",
-	"invalid request body":                                                 "bad_request",
-	"length must be an integer between 1 and 128":                          "length_invalid",
-	"missing 'file' field":                                                 "file_missing",
-	"missing account id":                                                   "account_id_missing",
-	"missing or malformed authorization header":                           "auth_header_invalid",
-	"name is required":                                                     "name_required",
-	"new password must be at least 12 characters":                          "new_password_short",
-	"next_payment_date must be YYYY-MM-DD":                                 "next_payment_invalid",
-	"no attachments to export":                                             "no_attachments",
-	"not authenticated":                                                    "not_authenticated",
-	"registration is closed; ask an existing admin to invite you":          "registration_closed",
-	"rotate_every_days must be positive":                                   "rotate_invalid",
-	"service and password are required":                                    "service_password_required",
-	"service is required":                                                  "service_required",
-	"status must be 'active' or 'inactive'":                                "status_invalid",
-	"that email is already in use":                                         "email_in_use",
-	"too many attempts, try again later":                                   "too_many_attempts",
-	"user not found":                                                       "user_not_found",
-	"you cannot delete your own account":                                   "cannot_delete_self",
+	"cannot delete the last admin":  "last_admin",
+	"category not found":            "category_not_found",
+	"currency not found":            "currency_not_found",
+	"current password is incorrect": "current_password_wrong",
+	"email is required":             "email_required",
+	"email required and password must be at least 12 characters": "email_and_password_required",
+	"file too large or invalid form":                             "file_invalid",
+	"internal error":                                             "internal",
+	"invalid code":                                               "invalid_code",
+	"invalid TOTP secret":                                        "totp_secret_invalid",
+	"invalid email or password":                                  "invalid_credentials",
+	"not initialized":                                            "not_initialized",
+	"payment not found":                                          "payment_not_found",
+	"invalid SMTP host":                                          "smtp_host_invalid",
+	"invalid SMTP port":                                          "smtp_port_invalid",
+	"invalid SMTP security mode":                                 "smtp_security_invalid",
+	"invalid from address":                                       "smtp_from_invalid",
+	"invalid SMTP credentials":                                   "smtp_credentials_invalid",
+	"refusing to send credentials over an unencrypted connection": "smtp_insecure",
+	"smtp password is required when a username is set":            "smtp_password_required",
+	"email is not configured":                                     "email_not_configured",
+	"email is turned off":                                         "email_disabled",
+	"paid_on must be YYYY-MM-DD":                                  "paid_on_invalid",
+	"amount is required":                                          "amount_required",
+	"already initialized":                                         "already_initialized",
+	"the vault is not locked":                                     "not_locked",
+	"incorrect passphrase":                                        "incorrect_passphrase",
+	"passphrase must be at least 8 characters":                    "passphrase_short",
+	"two-factor is not set up":                                    "totp_not_setup",
+	"invalid or expired token":                                    "token_invalid",
+	"invalid request body":                                        "bad_request",
+	"length must be an integer between 1 and 128":                 "length_invalid",
+	"missing 'file' field":                                        "file_missing",
+	"missing account id":                                          "account_id_missing",
+	"missing or malformed authorization header":                   "auth_header_invalid",
+	"name is required":                                            "name_required",
+	"new password must be at least 12 characters":                 "new_password_short",
+	"next_payment_date must be YYYY-MM-DD":                        "next_payment_invalid",
+	"no attachments to export":                                    "no_attachments",
+	"not authenticated":                                           "not_authenticated",
+	"registration is closed; ask an existing admin to invite you": "registration_closed",
+	"rotate_every_days must be positive":                          "rotate_invalid",
+	"service and password are required":                           "service_password_required",
+	"service is required":                                         "service_required",
+	"status must be 'active' or 'inactive'":                       "status_invalid",
+	"that email is already in use":                                "email_in_use",
+	"too many attempts, try again later":                          "too_many_attempts",
+	"user not found":                                              "user_not_found",
+	"you cannot delete your own account":                          "cannot_delete_self",
 }
 
 // decodeJSON reads a JSON body into dst, rejecting bodies that are too large or

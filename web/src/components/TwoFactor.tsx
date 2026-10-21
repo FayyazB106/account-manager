@@ -100,7 +100,7 @@ export function TwoFactorCard() {
   }
 
   return (
-    <div className="totp-section">
+    <div className="totp-section" id="s-two-factor">
       <h2 className="section-title">{t("totp.title")}</h2>
       <p className="muted" style={{ marginTop: 0 }}>{t("totp.desc")}</p>
 

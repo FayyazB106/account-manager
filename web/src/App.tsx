@@ -28,6 +28,7 @@ import { AdminSettings } from "./pages/AdminSettings";
 import { UsersSettings } from "./pages/UsersSettings";
 import { ConfigurationSettings } from "./pages/ConfigurationSettings";
 import { DeploymentSettings } from "./pages/DeploymentSettings";
+import { EmailSettings } from "./pages/EmailSettings";
 import { AuditSettings } from "./pages/AuditSettings";
 
 // RequireAuth redirects to /login when there is no session token.
@@ -95,6 +96,7 @@ export default function App() {
           <Route path="users" element={<UsersSettings />} />
           <Route path="configuration" element={<ConfigurationSettings />} />
           <Route path="deployment" element={<DeploymentSettings />} />
+          <Route path="email" element={<EmailSettings />} />
           <Route path="audit" element={<AuditSettings />} />
         </Route>
       </Route>

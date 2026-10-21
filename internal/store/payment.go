@@ -31,12 +31,12 @@ type Payment struct {
 // ledger needs to filter and display across accounts.
 type PaymentListItem struct {
 	Payment
-	Service             string   `json:"service"`
-	CategoryID          *string  `json:"category_id,omitempty"`
-	CategoryName        *string  `json:"category_name,omitempty"`
-	CategoryIcon        *string  `json:"category_icon,omitempty"`
-	BillingPeriodMonths int      `json:"billing_period_months"`
-	Seats               []string `json:"seats"`
+	Service             string    `json:"service"`
+	CategoryID          *string   `json:"category_id,omitempty"`
+	CategoryName        *string   `json:"category_name,omitempty"`
+	CategoryIcon        *string   `json:"category_icon,omitempty"`
+	BillingPeriodMonths int       `json:"billing_period_months"`
+	Seats               []string  `json:"seats"`
 	SeatsAr             []*string `json:"seats_ar,omitempty"`
 }
 

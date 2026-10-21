@@ -54,8 +54,9 @@ var tables = []string{
 // clearOnRestore are session tables wiped (not copied) on restore, so a restore
 // actually invalidates every session — the backup's own tokens would reference a
 // now-replaced admin set anyway. Restoring to recover from a compromise must not
-// leave old sessions valid.
-var clearOnRestore = []string{"refresh_token"}
+// leave old sessions valid. breach_alert_pending (undelivered alerts) is likewise
+// transient and would reference admins/accounts that the restore replaces.
+var clearOnRestore = []string{"refresh_token", "breach_alert_pending"}
 
 type Manager struct {
 	dir      string

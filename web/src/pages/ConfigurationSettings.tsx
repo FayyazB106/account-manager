@@ -41,7 +41,7 @@ export function ConfigurationSettings() {
 
   return (
     <>
-      <div className="card">
+      <div className="card" id="s-general">
         <h2 className="section-title">{t("config.title")}</h2>
         <div className="inline-field">
           <span>{t("config.weekStartsOn")}</span>
@@ -134,7 +134,7 @@ function UpdatesSection() {
   }
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" style={{ marginTop: 16 }} id="s-updates">
       <h2 className="section-title">{t("update.settingsTitle")}</h2>
 
       <label className="switch-row">
@@ -202,7 +202,7 @@ function BreachSection() {
   }
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" style={{ marginTop: 16 }} id="s-breach">
       <h2 className="section-title">{t("breach.title")}</h2>
       <p className="muted" style={{ marginTop: 0 }}>{t("breach.desc")}</p>
       <div className="inline-field">
@@ -296,7 +296,7 @@ function BackupSection() {
   }
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" style={{ marginTop: 16 }} id="s-backups">
       <h2 className="section-title">{t("backup.title")}</h2>
       <p className="muted" style={{ marginTop: 0 }}>{t("backup.hint")}</p>
 
@@ -393,7 +393,7 @@ function LanguagesSection() {
   }
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" style={{ marginTop: 16 }} id="s-languages">
       <h2 className="section-title">{t("config.languages")}</h2>
       <label className="switch-row">
         <input
@@ -422,7 +422,7 @@ function CurrenciesSection() {
   const inactive = currencies.filter((c) => !c.active);
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" style={{ marginTop: 16 }} id="s-currencies">
       <h2 className="section-title">{t("config.currencies")}</h2>
       <p className="muted" style={{ marginTop: 0 }}>
         {t("config.currenciesHint")}

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { useLayout } from "../components/Layout";
+import { localCategoryName } from "../categoryName";
 import { billingLabel } from "../account-ui";
 import { fmtMoney, toUSD } from "../money";
 import { downloadSheet } from "./FinanceAccounts";
@@ -17,7 +18,7 @@ import { listAllPayments, downloadAttachment, fetchAttachmentBlob, type PaymentL
 type SortKey = "paid_on" | "service" | "amount";
 
 export function FinancePayments() {
-  const { currencies, lang } = useLayout();
+  const { currencies, lang, categories } = useLayout();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [payments, setPayments] = useState<PaymentListItem[]>([]);
@@ -41,9 +42,9 @@ export function FinancePayments() {
   // Filter options derived from all payments so each dropdown offers every value.
   const catOptions = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of payments) if (p.category_id) m.set(p.category_id, p.category_name || p.category_id);
+    for (const p of payments) if (p.category_id) m.set(p.category_id, localCategoryName(categories, p.category_id, p.category_name || p.category_id, lang));
     return [...m.entries()].map(([id, name]) => ({ id, name })).sort((x, y) => x.name.localeCompare(y.name));
-  }, [payments]);
+  }, [payments, categories, lang]);
   const billingOptions = useMemo(() => {
     const s = new Set<number>();
     for (const p of payments) s.add(p.billing_period_months);
@@ -118,7 +119,7 @@ export function FinancePayments() {
     const data = rows.map((p) => [
       p.paid_on.slice(0, 10),
       p.service,
-      p.category_name ?? t("accounts.uncategorizedPlain"),
+      p.category_name ? localCategoryName(categories, p.category_id, p.category_name, lang) : t("accounts.uncategorizedPlain"),
       seatNames(p).map((s) => s.trim()).filter(Boolean).join(", "),
       ...activeCcys.map((c) => amountIn(p, c.code, c.rate)),
       p.currency,

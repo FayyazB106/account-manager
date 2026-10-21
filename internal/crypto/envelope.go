@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // Envelope is the stored result of encrypting one secret with envelope
@@ -52,6 +53,43 @@ func EnvelopeDecrypt(masterKey []byte, e *Envelope) ([]byte, error) {
 		return nil, fmt.Errorf("decrypt ciphertext: %w", err)
 	}
 	return plaintext, nil
+}
+
+// SealString envelope-encrypts a short secret (e.g. an SMTP password) and returns
+// it as one printable string safe to keep in a key/value setting:
+// "v1:<base64 wrapped DEK>.<base64 ciphertext>".
+func SealString(masterKey []byte, plaintext string) (string, error) {
+	env, err := EnvelopeEncrypt(masterKey, []byte(plaintext))
+	if err != nil {
+		return "", err
+	}
+	return "v1:" + base64.StdEncoding.EncodeToString(env.WrappedDEK) + "." +
+		base64.StdEncoding.EncodeToString(env.Ciphertext), nil
+}
+
+// OpenString reverses SealString.
+func OpenString(masterKey []byte, sealed string) (string, error) {
+	body, ok := strings.CutPrefix(sealed, "v1:")
+	if !ok {
+		return "", fmt.Errorf("unrecognised sealed value")
+	}
+	dekPart, ctPart, ok := strings.Cut(body, ".")
+	if !ok {
+		return "", fmt.Errorf("malformed sealed value")
+	}
+	dek, err := base64.StdEncoding.DecodeString(dekPart)
+	if err != nil {
+		return "", fmt.Errorf("malformed sealed value: %w", err)
+	}
+	ct, err := base64.StdEncoding.DecodeString(ctPart)
+	if err != nil {
+		return "", fmt.Errorf("malformed sealed value: %w", err)
+	}
+	pt, err := EnvelopeDecrypt(masterKey, &Envelope{WrappedDEK: dek, Ciphertext: ct})
+	if err != nil {
+		return "", err
+	}
+	return string(pt), nil
 }
 
 // LoadMasterKey reads the server master key from the MASTER_KEY environment

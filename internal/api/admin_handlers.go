@@ -97,7 +97,7 @@ func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	writeJSON(w, http.StatusOK, store.AdminInfo{ID: a.ID, Email: a.Email, Name: a.Name, NameAr: a.NameAr, CreatedAt: a.CreatedAt})
+	writeJSON(w, http.StatusOK, store.AdminInfo{ID: a.ID, Email: a.Email, Name: a.Name, NameAr: a.NameAr, MonthlyReport: a.MonthlyReport, PaymentReminders: a.PaymentReminders, RotationReminders: a.RotationReminders, UpcomingPayments: a.UpcomingPayments, BreachAlerts: a.BreachAlerts, Language: a.Language, CreatedAt: a.CreatedAt})
 }
 
 type updateProfileInput struct {

@@ -40,6 +40,9 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			actor.adminID = adminID
 		}
 
+		// Learn which language the app is showing this admin (for the emails sent to them).
+		s.noteLanguage(r, adminID)
+
 		// Pass the authenticated admin's ID down to the handler via context.
 		ctx := context.WithValue(r.Context(), adminIDKey, adminID)
 		next(w, r.WithContext(ctx))
@@ -50,4 +53,33 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 func adminIDFrom(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(adminIDKey).(string)
 	return id, ok
+}
+
+// noteLanguage records the language the app is being shown in, which the web app sends
+// on every request as X-App-Language ("en" or "ar"), as the admin's language — so the
+// emails sent to them (scheduled ones run with no browser) are written in it, and
+// "Send Now" matches the screen they are looking at. It runs before the handler, so a
+// request's own language is already in place when the handler reads it. A small
+// in-memory map keeps this to one database write per change, not one per request.
+func (s *Server) noteLanguage(r *http.Request, adminID string) {
+	lang := r.Header.Get("X-App-Language")
+	if lang != "en" && lang != "ar" {
+		return // absent or unknown: leave the stored language alone
+	}
+	s.langMu.Lock()
+	seen := s.langSeen[adminID]
+	s.langMu.Unlock()
+	if seen == lang {
+		return
+	}
+	if err := s.Admins.SetLanguage(r.Context(), adminID, lang); err != nil {
+		logErr("noteLanguage", err)
+		return
+	}
+	s.langMu.Lock()
+	if s.langSeen == nil {
+		s.langSeen = map[string]string{}
+	}
+	s.langSeen[adminID] = lang
+	s.langMu.Unlock()
 }

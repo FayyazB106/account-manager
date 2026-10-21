@@ -442,6 +442,9 @@ func (s *AccountStore) GetTOTP(ctx context.Context, id string) ([]byte, error) {
 // monitor to decrypt and check).
 type AccountSecret struct {
 	ID                 string
+	Service            string
+	Login              string
+	PrevBreach         *int // breach_count before this scan (nil = never checked)
 	PasswordWrappedDEK []byte
 	PasswordCiphertext []byte
 }
@@ -459,7 +462,7 @@ func (s *AccountStore) AllSecrets(ctx context.Context) ([]AccountSecret, error) 
 
 func (s *AccountStore) listSecrets(ctx context.Context, where string) ([]AccountSecret, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, password_wrapped_dek, password_ciphertext FROM account `+where)
+		`SELECT id, service, COALESCE(login, ''), breach_count, password_wrapped_dek, password_ciphertext FROM account `+where)
 	if err != nil {
 		return nil, err
 	}
@@ -467,7 +470,7 @@ func (s *AccountStore) listSecrets(ctx context.Context, where string) ([]Account
 	var out []AccountSecret
 	for rows.Next() {
 		var a AccountSecret
-		if err := rows.Scan(&a.ID, &a.PasswordWrappedDEK, &a.PasswordCiphertext); err != nil {
+		if err := rows.Scan(&a.ID, &a.Service, &a.Login, &a.PrevBreach, &a.PasswordWrappedDEK, &a.PasswordCiphertext); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -498,4 +501,32 @@ func (s *AccountStore) BreachSummary(ctx context.Context) (last time.Time, breac
 	err = s.db.QueryRowContext(ctx,
 		`SELECT MAX(breach_checked_at), COALESCE(SUM(breach_count > 0), 0) FROM account`).Scan(&t, &breached)
 	return parseSQLiteTS(t.String), breached, err
+}
+
+// BreachHit is one account whose password was found in known data breaches.
+type BreachHit struct {
+	ID      string
+	Service string
+	Login   string
+	Count   int // times the password appears in breach data
+}
+
+// ListBreached returns the active accounts currently flagged as breached, worst first.
+func (s *AccountStore) ListBreached(ctx context.Context) ([]BreachHit, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, service, COALESCE(login, ''), breach_count FROM account
+		 WHERE status = 'active' AND breach_count > 0 ORDER BY breach_count DESC, service`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BreachHit
+	for rows.Next() {
+		var h BreachHit
+		if err := rows.Scan(&h.ID, &h.Service, &h.Login, &h.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
 }

@@ -64,6 +64,9 @@ export function restoreSession(): Promise<boolean> {
 async function request<T>(path: string, options: RequestInit = {}, retried = false): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    // The language the app is showing right now. The server notes it for the signed-in
+    // admin so the emails sent to them (and "Send Now") are written in it.
+    "X-App-Language": i18n.language === "ar" ? "ar" : "en",
     ...(options.headers as Record<string, string>),
   };
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
@@ -368,7 +371,90 @@ export interface Admin {
   name: string;
   name_ar?: string;
   totp_enabled?: boolean;
+  monthly_report?: boolean; // gets last month's payment history by email
+  payment_reminders?: boolean; // gets daily reminders while a payment is due within 7 days or overdue
+  breach_alerts?: boolean; // emailed right away when a scan finds a newly breached password
+  rotation_reminders?: boolean; // gets daily reminders while a password is due for rotation within 7 days or overdue
+  upcoming_payments?: boolean; // gets the month's upcoming payments by email on the 1st
+  language?: "en" | "ar"; // UI language saved on the server; emails to this admin follow it
   created_at: string;
+}
+
+// --- Email (SMTP) + monthly payment report ---------------------------------
+
+export type SMTPSecurity = "tls" | "starttls" | "none";
+
+// SMTPConfig is the stored configuration. The password is never returned —
+// has_password only says whether one is saved.
+export interface SMTPConfig {
+  host: string;
+  port: number;
+  security: SMTPSecurity | "";
+  username: string;
+  from: string;
+  has_password: boolean;
+  configured: boolean;
+  enabled: boolean; // master switch: nothing is sent while off (settings are kept)
+}
+export interface SMTPInput {
+  host: string;
+  port: number;
+  security: SMTPSecurity;
+  username: string;
+  from: string;
+  password?: string; // omit/empty to keep the saved password
+}
+export function getSMTP() {
+  return request<SMTPConfig>("/smtp");
+}
+export function saveSMTP(input: SMTPInput) {
+  return request<{ status: string }>("/smtp", { method: "PUT", body: JSON.stringify(input) });
+}
+export function setSMTPEnabled(enabled: boolean) {
+  return request<{ enabled: boolean }>("/smtp/enabled", { method: "PUT", body: JSON.stringify({ enabled }) });
+}
+export function sendTestEmail() {
+  return request<{ sent_to: string }>("/smtp/test", { method: "POST" });
+}
+// Emails last month's report to the signed-in admin right now (doesn't affect the
+// real monthly schedule).
+export function sendReportPreview() {
+  return request<{ sent_to: string; payments: number }>("/report/preview", { method: "POST" });
+}
+// Emails the current due-payment reminder to the signed-in admin right now. When
+// nothing is due, nothing is sent and sent is false.
+export function sendReminderPreview() {
+  return request<{ sent_to: string; payments: number; sent: boolean }>("/reminder/preview", { method: "POST" });
+}
+// Emails the current password-rotation reminder to the signed-in admin right now.
+// When nothing is due, nothing is sent and sent is false.
+export function sendRotationPreview() {
+  return request<{ sent_to: string; passwords: number; sent: boolean }>("/rotation/preview", { method: "POST" });
+}
+// Emails this month's upcoming payments (the Monthly Costs list) to the signed-in
+// admin right now. When nothing is scheduled, nothing is sent and sent is false.
+export function sendUpcomingPreview() {
+  return request<{ sent_to: string; payments: number; sent: boolean }>("/upcoming/preview", { method: "POST" });
+}
+export function setUpcomingPayments(enabled: boolean) {
+  return request<{ enabled: boolean }>("/profile/upcoming-payments", { method: "PUT", body: JSON.stringify({ enabled }) });
+}
+// Emails the passwords currently flagged as breached to the signed-in admin right
+// now. When none are flagged, nothing is sent and sent is false.
+export function sendBreachAlertPreview() {
+  return request<{ sent_to: string; passwords: number; sent: boolean }>("/breach-alert/preview", { method: "POST" });
+}
+export function setBreachAlerts(enabled: boolean) {
+  return request<{ enabled: boolean }>("/profile/breach-alerts", { method: "PUT", body: JSON.stringify({ enabled }) });
+}
+export function setRotationReminders(enabled: boolean) {
+  return request<{ enabled: boolean }>("/profile/rotation-reminders", { method: "PUT", body: JSON.stringify({ enabled }) });
+}
+export function setPaymentReminders(enabled: boolean) {
+  return request<{ enabled: boolean }>("/profile/payment-reminders", { method: "PUT", body: JSON.stringify({ enabled }) });
+}
+export function setMonthlyReport(enabled: boolean) {
+  return request<{ enabled: boolean }>("/profile/monthly-report", { method: "PUT", body: JSON.stringify({ enabled }) });
 }
 
 export interface AuditEntry {

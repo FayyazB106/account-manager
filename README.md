@@ -58,6 +58,7 @@ there's nothing to install or migrate.
 - **Breach monitoring** — scheduled Have I Been Pwned check of stored passwords (**Settings → Configuration**), flagging breached ones. Uses k-anonymity — only a short hash prefix is sent.
 - **Clipboard auto-clear** after copying a secret (configurable; **Settings → Configuration**). Note: this wipes the *active* clipboard, but a browser cannot clear **Windows Clipboard History (Win+V)** or cloud clipboard sync — disable/clear those at the OS level if that matters.
 - Login rate-limiting + lockout, encrypted attachments, and in-app backups.
+- **Email reports and reminders** — connect any SMTP account (**Settings → Email**), then each admin chooses what they get under **Settings → Admin → Send Emails**: last month's payment history (Excel) and the month's upcoming payments, both on the 1st, plus daily reminders while a payment is due or a password needs changing. Each email is written in the receiving admin's own language (English or Arabic). See [Email](#email-reports-smtp).
 - **Update checks** — the app notifies you in-app when a new release is available and (on desktop) can one-click update; downloads are **SHA256-verified** against the release before running. Toggle in **Settings → Configuration**. See [`DEPLOY.md`](DEPLOY.md#updating).
 
 ### Where it listens
@@ -85,6 +86,79 @@ install needs no configuration. Key points:
 - **`DATA_DIR`** (default `./data`) — holds the DB, key file, and backups. It's
   relative to the working directory, so run the binary from a consistent place or
   set an absolute path.
+
+### Email reports (SMTP)
+
+The app ships no email service or credentials — you bring your own SMTP account, and a
+free plan is plenty (two emails per admin per month, plus daily reminders only while
+something is due). Set it up in **Settings → Email**. Email starts **off**: use the switch at
+the top right of that page to turn it on. Turning it off again keeps your saved settings but
+stops all sending, and the **Send Emails** card under *Settings → Admin* is greyed out until it is back on.
+
+Then each admin opens **Settings → Admin → Send Emails** and switches on what they want
+(each email has its own switch and **Send Now** button; **Send test email** is at the top
+right of that card).
+
+Example with [Resend](https://resend.com) (free plan: 3,000 emails/month, 100/day):
+
+1. Create a Resend account and an **API key** (sending access).
+2. Verify a domain you own in Resend so you can send from it
+   (`onboarding@resend.dev` is for testing only).
+3. In **Settings → Email**, turn the switch on, press **Use Resend settings** (host `smtp.resend.com`, port `465`,
+   SSL/TLS, username `resend`), paste the API key as the **password**, and set
+   **Send from** to an address on your verified domain.
+
+How it behaves:
+
+- **Monthly payment history** — the report for the month that just ended is sent on the 1st.
+  If the app wasn't running (or the vault was still locked) it is sent the next time it is —
+  at most one per admin per month. Turning it on doesn't send past months: if you switch it on
+  on 21 October, your first report is October's, sent on 1 November (September's is never sent). It is one `.xlsx` (no passwords, no invoice files — just the
+  payment ledger) with an **Amount** column per active currency and a **Paid in** column.
+- **Upcoming payments** — on the 1st (after 08:00), the payments coming up that month and their
+  total, in the same way **Finance → Monthly Costs** works them out: each active account with an
+  amount pays on its next-payment date and every billing period after it (clamped to short months).
+  Each line shows the date, service, login and amount. Nothing is sent if the month has no payments.
+  A missed 1st is caught up the next time the app runs; opting in mid-month starts next month.
+- **Payment reminders** — once a day (after 08:00) while any active recurring payment is due
+  within **7 days or overdue** (the same set the app highlights as needing attention). It lists
+  each one with its due date and amount, most urgent first, and stops once you update the account
+  with the latest payment (**Mark as paid**) or deactivate it. Nothing is sent on days when nothing
+  is due. Opting in doesn't send one the same day; the first reminder is tomorrow's.
+- **Password rotation reminders** — the same daily email for passwords: any active account with a
+  *rotate every N days* policy whose password was last changed more than N days ago (or will be
+  within **7 days**). It lists each account with its login and how overdue it is, and stops once
+  you change the password in Account Manager (or deactivate the account).
+- **Breach alerts** — *not scheduled*: an email sent right after a breach scan (the scheduled one
+  from **Settings → Configuration → Breach monitoring**, or **Scan now**) finds a password in a
+  *new* data breach. "New" means a password that was clean or never checked before, or whose
+  breach count went up since the last scan; breaches already flagged when you opt in don't
+  re-trigger. It lists each account (service and login) with how many times that password was
+  exposed, and never the password itself. If the alert can't be delivered (device offline, mail
+  server down) it is kept and retried about every 30 minutes until it goes through, surviving
+  restarts; it is dropped if you change that password, deactivate the account or turn the alerts
+  off. **Send Now** emails everything currently flagged.
+- **Times** — all on the clock of the machine running the app, checked every 15 minutes: the daily
+  reminders (payments and passwords) go out after **08:00**, as does the upcoming-payments email
+  on the 1st, and the monthly history on the first check on or after the 1st.
+- **Language** — every email is written in the receiving admin's own language, English or
+  Arabic: whichever the app was last showing them (the web app sends its current language with
+  every request, so it stays up to date as they use it, and **Send Now** matches the screen they are on). Arabic emails are right-to-left (sent as plain text plus an HTML copy so mail clients right-align them), use the app's Arabic wording and month names,
+  greet by the admin's Arabic name when they have one, and attach an Arabic right-to-left
+  spreadsheet (seats shown by their Arabic names where set). If Arabic support is switched off
+  in **Settings → Configuration**, everyone gets English. Exports you download yourself behave as
+  before: **Settings → Export** is English, and the **Finance** exports follow the language
+  you are viewing the app in.
+- **Slow connections** — a send is abandoned after 30 seconds, or 2 minutes when a spreadsheet is
+  attached (the monthly history), so a slow upload doesn't fail with a timeout.
+- **Send Now** — emails you the current report, list or reminder right away without affecting
+  the schedule (if there is nothing to send, it tells you instead of sending an empty email).
+- **It can only send while the app is running.** A missed day or month is caught up the next
+  time it is running; a failed send is retried every 30 minutes until it goes through.
+- **Security:** the SMTP password is stored encrypted with your master key and is
+  never shown again. Credentials are refused over an unencrypted connection. The
+  emails sit unencrypted in the recipient's mailbox — see
+  [`THREAT_MODEL.md`](THREAT_MODEL.md).
 
 ### Operator commands
 
@@ -178,7 +252,10 @@ internal/
   config           env-based config
   crypto           Argon2id, AES-256-GCM envelope encryption, key sealing
   db               SQLite open + schema.sql + versioned migrations
+  mailer           plain-SMTP sender (SSL/TLS or STARTTLS, MIME attachments)
   rates            daily exchange-rate fetch (open.er-api.com)
+  report           payments spreadsheet + the email scheduler (monthly history, upcoming
+                   payments, payment and password-rotation reminders, breach alerts), English/Arabic wording
   store            data access (database/sql)
   totp             RFC 6238 TOTP + backup codes
   update           GitHub release check + checksum-verified self-update
@@ -214,15 +291,21 @@ was made. Restore copies the snapshot in without a restart.
 
 ## Notes
 
-- Outbound network calls (no keys or personal data sent):
+- Outbound network calls (no keys or personal data sent), by default:
   - the daily USD exchange-rate fetch (`open.er-api.com`);
   - the Have I Been Pwned range API (`api.pwnedpasswords.com`, k-anonymity — only a
     5-char SHA-1 prefix is sent), when breach monitoring is enabled;
   - the GitHub releases check for app updates (`api.github.com`), when update checks
     are on — plus the on-demand download of a release from GitHub when you apply an
     update. Both toggle off in **Settings → Configuration → Updates**.
+- **Only if you set up [email reports](#email-reports-smtp)**, the app also connects to the
+  SMTP server you configured and sends it your login (encrypted in transit) and the
+  emails an admin switched on: the monthly payment spreadsheet, the month's upcoming payments, and
+  payment / password-rotation reminders, and breach alerts. Nothing is sent until you configure it and an admin opts in.
+- **Settings search** (the box above the Settings menu) finds sections and individual settings by name or synonym, in English and Arabic at once. When you add a setting or a section, add it to `web/src/settingsSearch.ts` (and give it an `id="s-…"` anchor on the page) with its synonyms under `settingsSearch.kw.<id>` in both locale files, or it can't be found from the search.
 - Every new user-facing web string must have English **and** Arabic translations
-  (see `web/src/locales`).
+  (see `web/src/locales`). The same goes for any text the **server** writes — the emails in
+  `internal/report/messages.go` — which is worded in both languages side by side.
 
 ## Credits
 

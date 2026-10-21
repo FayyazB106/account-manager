@@ -22,6 +22,9 @@ type Monitor struct {
 	keyFn    func() []byte // master key, read lazily (may be set after startup via web unlock)
 	client   *http.Client
 	audit    store.AuditFunc
+	// OnNew is called after a scan with the accounts whose password was found in a
+	// breach that was not known before (nil = nobody to tell).
+	OnNew func(ctx context.Context, hits []store.BreachHit)
 }
 
 func NewMonitor(accounts *store.AccountStore, settings *store.SettingStore, keyFn func() []byte) *Monitor {
@@ -50,6 +53,7 @@ func (m *Monitor) Scan(ctx context.Context) (checked, skipped int, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
+	var fresh []store.BreachHit
 	for _, sec := range secrets {
 		pt, err := crypto.EnvelopeDecrypt(key, &crypto.Envelope{
 			WrappedDEK: sec.PasswordWrappedDEK,
@@ -68,8 +72,20 @@ func (m *Monitor) Scan(ctx context.Context) (checked, skipped int, err error) {
 			skipped++
 			continue
 		}
+		// New = the password now appears in more breaches than the last time it was
+		// checked (a never-checked or since-changed password counts from zero).
+		prev := 0
+		if sec.PrevBreach != nil {
+			prev = *sec.PrevBreach
+		}
+		if n > prev {
+			fresh = append(fresh, store.BreachHit{ID: sec.ID, Service: sec.Service, Login: sec.Login, Count: n})
+		}
 		checked++
 		time.Sleep(200 * time.Millisecond) // be polite to HIBP
+	}
+	if len(fresh) > 0 && m.OnNew != nil {
+		m.OnNew(ctx, fresh)
 	}
 	return checked, skipped, nil
 }

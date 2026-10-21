@@ -16,6 +16,7 @@ import { PasswordInput } from "../components/PasswordInput";
 import { CircleButton } from "../components/CircleButton";
 import { Modal } from "../components/Modal";
 import { TwoFactorCard } from "../components/TwoFactor";
+import { SendEmailsCard } from "../components/SendEmails";
 import { FaTrash, FaBuilding, FaCamera, FaTimes, FaShieldAlt, FaSun, FaMoon } from "react-icons/fa";
 
 export function AdminSettings() {
@@ -27,6 +28,7 @@ export function AdminSettings() {
           <ResetPasswordCard />
         </div>
         <TwoFactorCard />
+        <SendEmailsCard />
       </div>
       <AppearanceCard />
       <OrganizationCard />
@@ -44,7 +46,7 @@ function AppearanceCard() {
     applyThemeMode(next);
   }
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" style={{ marginTop: 16 }} id="s-appearance">
       <h2 className="section-title">{t("config.appearance")}</h2>
       <div className="inline-field">
         <span>{t("config.theme")}</span>
@@ -109,7 +111,7 @@ function OrganizationCard() {
   }
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" id="s-organization" style={{ marginTop: 16 }}>
       <h2 className="section-title">{t("admin.organization")} <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>· {t("common.optional")}</span></h2>
       <form className="add-form" onSubmit={save}>
         <div className="org-row">
@@ -168,7 +170,7 @@ function ProfileCard() {
   }
 
   return (
-    <div>
+    <div id="s-profile">
       <h2 className="section-title">{t("admin.profile")}</h2>
       <form className="add-form" onSubmit={save}>
         <Field label={t("common.name")}><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
@@ -205,7 +207,7 @@ function ResetPasswordCard() {
   }
 
   return (
-    <div>
+    <div id="s-reset-password">
       <h2 className="section-title">{t("admin.resetPassword")}</h2>
       <form className="add-form" onSubmit={save}>
         <Field label={t("admin.currentPassword")}>
@@ -270,7 +272,7 @@ function AdminsCard() {
   }
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" id="s-admins" style={{ marginTop: 16 }}>
       <div className="topbar" style={{ marginBottom: 12 }}>
         <h2 className="section-title" style={{ margin: 0 }}>{t("admin.admins")}</h2>
         <CircleButton open={showAdd} title={showAdd ? t("common.close") : t("admin.addAdmin")} onClick={() => (showAdd ? closeAdd() : openAdd())}>+</CircleButton>

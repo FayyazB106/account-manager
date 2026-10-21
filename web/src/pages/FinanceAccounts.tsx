@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import * as XLSX from "xlsx";
 import { useLayout } from "../components/Layout";
+import { localCategoryName } from "../categoryName";
 import { billingLabel } from "../account-ui";
 import { fmtMoney } from "../money";
 import { Button } from "../components/Button";
@@ -30,7 +31,7 @@ function namedUsers(seats: string[]): string {
 type SortKey = "service" | "login" | "seats" | "cost";
 
 export function FinanceAccounts() {
-  const { accounts, currencies, lang } = useLayout();
+  const { accounts, currencies, lang, categories } = useLayout();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"monthly" | "yearly">("monthly");
@@ -53,9 +54,9 @@ export function FinanceAccounts() {
   // value that exists (independent of the other active filters).
   const catOptions = useMemo(() => {
     const m = new Map<string, string>();
-    for (const a of baseList) if (a.category_id) m.set(a.category_id, a.category_name || a.category_id);
+    for (const a of baseList) if (a.category_id) m.set(a.category_id, localCategoryName(categories, a.category_id, a.category_name || a.category_id, lang));
     return [...m.entries()].map(([id, name]) => ({ id, name })).sort((x, y) => x.name.localeCompare(y.name));
-  }, [baseList]);
+  }, [baseList, categories, lang]);
   const billingOptions = useMemo(() => {
     const s = new Set<number>();
     for (const a of baseList) s.add(a.billing_period_months);
@@ -130,7 +131,7 @@ export function FinanceAccounts() {
     ];
     const data = rows.map((a) => [
       a.service,
-      a.category_name ?? t("accounts.uncategorizedPlain"),
+      a.category_name ? localCategoryName(categories, a.category_id, a.category_name, lang) : t("accounts.uncategorizedPlain"),
       a.login ?? "",
       a.seats.length,
       namedUsers(seatNames(a)),

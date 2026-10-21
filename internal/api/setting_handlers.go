@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/FayyazB106/account-manager/internal/report"
 )
 
 func (s *Server) listSettings(w http.ResponseWriter, r *http.Request) {
@@ -12,6 +14,10 @@ func (s *Server) listSettings(w http.ResponseWriter, r *http.Request) {
 		logErr("listSettings", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
+	}
+	// Never expose secret settings (the sealed SMTP password) to the browser.
+	for _, k := range report.SecretKeys {
+		delete(all, k)
 	}
 	writeJSON(w, http.StatusOK, all)
 }
@@ -58,6 +64,11 @@ func (s *Server) setSetting(w http.ResponseWriter, r *http.Request) {
 // server reads them at startup (Deployment settings). A bad port or toggle could
 // otherwise prevent the app from binding on the next restart.
 func validateSetting(key, value string) error {
+	// Email (SMTP) settings carry a secret and are validated as a set, so they may
+	// only be written through PUT /smtp — never one key at a time here.
+	if report.IsManagedKey(key) {
+		return errBadSetting("email settings are managed from the Email section")
+	}
 	switch key {
 	case "deploy_port":
 		n, err := strconv.Atoi(strings.TrimSpace(value))

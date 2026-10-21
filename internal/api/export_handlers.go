@@ -2,14 +2,13 @@ package api
 
 import (
 	"archive/zip"
-	"math"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/FayyazB106/account-manager/internal/crypto"
-	"github.com/FayyazB106/account-manager/internal/store"
+	"github.com/FayyazB106/account-manager/internal/report"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -72,38 +71,12 @@ func (s *Server) exportAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Active currencies (same source + selection the UI uses: the currency table,
-	// active and with a usable rate). USD is the base (rate 1). Shared by the
-	// per-category account sheets and the Payments sheet so both convert identically.
-	var activeCcys []store.Currency
-	rateOf := map[string]float64{}
-	if all, cerr := s.Currencies.List(ctx); cerr == nil {
-		for _, c := range all {
-			rateOf[c.Code] = c.Rate
-			if c.Active && (c.Code == "USD" || c.Rate > 0) {
-				activeCcys = append(activeCcys, c)
-			}
-		}
-	}
-	round2 := func(v float64) float64 { return math.Round(v*100) / 100 }
-	// toUSD / amountIn mirror the frontend's money.ts (amount ÷ rate → USD, then
-	// × target rate), reading the identical rates from the currency table.
-	toUSD := func(amount float64, code string) float64 {
-		if code == "USD" {
-			return amount
-		}
-		if r := rateOf[code]; r > 0 {
-			return amount / r
-		}
-		return amount
-	}
-	amountIn := func(amount float64, code string, target store.Currency) float64 {
-		usd := toUSD(amount, code)
-		if target.Code == "USD" {
-			return round2(usd)
-		}
-		return round2(usd * target.Rate)
-	}
+	// Currency conversion is shared with the monthly email report (internal/report),
+	// so every spreadsheet converts identically and follows the active currencies.
+	allCurrencies, _ := s.Currencies.List(ctx)
+	conv := report.NewConverter(allCurrencies)
+	activeCcys := conv.Active()
+	amountIn := conv.AmountIn
 
 	f := excelize.NewFile()
 	defer f.Close()
@@ -206,69 +179,16 @@ func (s *Server) exportAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Payments sheet: the full (unfiltered) payment ledger across all accounts,
-	// appended after the per-category sheets. Mirrors the Finance → Payments export:
-	// one "Amount (CODE)" column per active currency (the payment converted into it),
-	// plus a "Paid in" column naming the currency actually used.
+	// appended after the per-category sheets. The layout lives in internal/report so
+	// the monthly email attaches exactly the same sheet.
 	if payments, perr := s.Payments.ListAll(ctx); perr == nil && len(payments) > 0 {
-		const ps = "Payments"
 		if !firstSheetSet {
-			f.SetSheetName("Sheet1", ps)
+			f.SetSheetName("Sheet1", report.PaymentsSheetName)
 			firstSheetSet = true
 		} else {
-			f.NewSheet(ps)
+			f.NewSheet(report.PaymentsSheetName)
 		}
-
-		phdr := []interface{}{"Date", "Service", "Category", "Users"}
-		for _, c := range activeCcys {
-			phdr = append(phdr, "Amount ("+c.Code+")")
-		}
-		phdr = append(phdr, "Paid in", "Note", "Invoice")
-		f.SetSheetRow(ps, "A1", &phdr)
-
-		for i, p := range payments {
-			cat := ""
-			if p.CategoryName != nil {
-				cat = *p.CategoryName
-			}
-			var pusers []string
-			for _, seat := range p.Seats {
-				if strings.TrimSpace(seat) != "" {
-					pusers = append(pusers, seat)
-				}
-			}
-			note, invoice := "", ""
-			if p.Note != nil {
-				note = *p.Note
-			}
-			if p.AttachmentName != nil {
-				invoice = *p.AttachmentName
-			}
-			prow := []interface{}{p.PaidOn.Format("2006-01-02"), p.Service, cat, strings.Join(pusers, ", ")}
-			for _, c := range activeCcys {
-				prow = append(prow, amountIn(p.Amount, p.Currency, c))
-			}
-			prow = append(prow, p.Currency, note, invoice)
-			cell, _ := excelize.CoordinatesToCellName(1, i+2)
-			f.SetSheetRow(ps, cell, &prow)
-		}
-
-		// Total row (per currency), matching the Finance → Payments export.
-		totalRow := []interface{}{"Total", "", "", ""}
-		for _, c := range activeCcys {
-			sum := 0.0
-			for _, p := range payments {
-				usd := toUSD(p.Amount, p.Currency)
-				if c.Code == "USD" {
-					sum += usd
-				} else {
-					sum += usd * c.Rate
-				}
-			}
-			totalRow = append(totalRow, round2(sum))
-		}
-		totalRow = append(totalRow, "", "", "")
-		cell, _ := excelize.CoordinatesToCellName(1, len(payments)+2)
-		f.SetSheetRow(ps, cell, &totalRow)
+		report.WritePaymentsSheet(f, report.PaymentsSheetName, payments, conv, report.LangEN)
 	}
 
 	buf, err := f.WriteToBuffer()

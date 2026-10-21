@@ -53,11 +53,36 @@ The rows below describe **what is true today**.
   that a web app cannot delete — browsers can only write the current clipboard, not
   purge history, and can't set the native "exclude from clipboard history" flags.
   Mitigation is at the OS level (disable/clear clipboard history).
-- **Outbound network calls.** Two, both without keys or personal data: a daily
-  USD exchange-rate fetch (`open.er-api.com`), and — when breach monitoring is
+- **Outbound network calls.** By default two, both without keys or personal data: a
+  daily USD exchange-rate fetch (`open.er-api.com`), and — when breach monitoring is
   enabled — the Have I Been Pwned range API (`api.pwnedpasswords.com`) using
   **k-anonymity**: only the first 5 chars of a password's SHA-1 are sent, so the
   password never leaves the server and the API can't tell which one was checked.
+  A third exists **only if an admin configures email reports** (next bullet).
+- **Email reports and reminders move account data out of the vault.** When SMTP is
+  configured and an admin opts in, the server emails them: last month's payment
+  spreadsheet and the month's upcoming payments (both on the 1st), and, daily, reminders
+  listing the payments due within 7 days or overdue and the passwords due for rotation, plus
+  an immediate alert when a breach scan finds a newly breached password (service, login and breach count — never the password).
+  Together these contain **payment dates, amounts, service names, account logins
+  (usernames/emails), seat users, notes and invoice file names — never passwords, 2FA
+  secrets or the invoice files themselves** — and once sent it sits **unencrypted in the recipient's mailbox and the provider's
+  systems**, outside our control. Mitigations: it is **off by default** (a master switch in
+  Settings → Email, plus a **per-admin opt-in**), sent only to that admin's own login email, and revocable by switching it
+  off. The SMTP password is stored **envelope-encrypted with `MASTER_KEY`**, never
+  returned by any API (not even to admins), and cannot be written through the generic
+  settings endpoint; the mailer **refuses to send credentials over an unencrypted
+  connection** and rejects header injection. A restore onto a different master key
+  leaves the stored SMTP password unreadable until it is re-entered. The email's
+  transport security is only as good as the SMTP provider's. Each admin's UI language (`en`/`ar`)
+  is stored on the server so their emails can be written in it; it is a display preference, not
+  sensitive.
+  Any admin who can edit **Settings → Email** chooses the SMTP host and port the server connects
+  to, so they can point it at any address the server can reach, including internal ones. This is
+  a limited server-side request risk (the server only speaks SMTP, but the connection error
+  shown when a send fails can reveal whether a host and port are reachable), accepted because admins are trusted and a mail relay on your own network
+  is a legitimate setup. Don't give admin access to people you wouldn't trust with network access
+  from the server.
 - **The server decrypts passwords during breach monitoring.** With monitoring on,
   the scheduled job decrypts each stored password (with `MASTER_KEY`) to hash it.
   This is inherent to the server-side model (the server can already decrypt) and

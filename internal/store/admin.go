@@ -14,16 +14,22 @@ var ErrNotFound = errors.New("not found")
 
 // Admin mirrors a row of the admin table.
 type Admin struct {
-	ID              string
-	Email           string
-	Name            string
-	NameAr          *string // optional Arabic display name
-	AuthHash        string  // PHC-encoded Argon2id hash (for login)
-	KEKSalt         []byte  // salt to re-derive the key-encryption-key
-	WrappedVaultKey []byte  // shared Vault Key, encrypted with this admin's KEK
-	TOTPSecret      []byte  // encrypted TOTP secret (nil = not set up)
-	TOTPEnabled     bool    // MFA is active for this admin
-	CreatedAt       time.Time
+	ID                string
+	Email             string
+	Name              string
+	NameAr            *string // optional Arabic display name
+	AuthHash          string  // PHC-encoded Argon2id hash (for login)
+	KEKSalt           []byte  // salt to re-derive the key-encryption-key
+	WrappedVaultKey   []byte  // shared Vault Key, encrypted with this admin's KEK
+	TOTPSecret        []byte  // encrypted TOTP secret (nil = not set up)
+	TOTPEnabled       bool    // MFA is active for this admin
+	MonthlyReport     bool    // email last month's payment history on the 1st
+	PaymentReminders  bool    // email daily while a payment is due within 7 days or overdue
+	RotationReminders bool    // email daily while a password is due for rotation within 7 days or overdue
+	UpcomingPayments  bool    // email the month's upcoming payments on the 1st
+	BreachAlerts      bool    // email right away when a scan finds a newly breached password
+	Language          string  // UI language ("en"/"ar"); emails to this admin are written in it
+	CreatedAt         time.Time
 }
 
 type AdminStore struct {
@@ -78,10 +84,10 @@ func (s *AdminStore) CreateFirst(ctx context.Context, email, name string, nameAr
 func (s *AdminStore) GetByEmail(ctx context.Context, email string) (*Admin, error) {
 	a := &Admin{}
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, email, name, name_ar, auth_hash, kek_salt, wrapped_vault_key, totp_secret, totp_enabled, created_at
+		`SELECT id, email, name, name_ar, auth_hash, kek_salt, wrapped_vault_key, totp_secret, totp_enabled, monthly_report, payment_reminders, rotation_reminders, upcoming_payments, breach_alerts, language, created_at
 		 FROM admin WHERE email = $1`,
 		email,
-	).Scan(&a.ID, &a.Email, &a.Name, &a.NameAr, &a.AuthHash, &a.KEKSalt, &a.WrappedVaultKey, &a.TOTPSecret, &a.TOTPEnabled, &a.CreatedAt)
+	).Scan(&a.ID, &a.Email, &a.Name, &a.NameAr, &a.AuthHash, &a.KEKSalt, &a.WrappedVaultKey, &a.TOTPSecret, &a.TOTPEnabled, &a.MonthlyReport, &a.PaymentReminders, &a.RotationReminders, &a.UpcomingPayments, &a.BreachAlerts, &a.Language, &a.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -95,10 +101,10 @@ func (s *AdminStore) GetByEmail(ctx context.Context, email string) (*Admin, erro
 func (s *AdminStore) GetByID(ctx context.Context, id string) (*Admin, error) {
 	a := &Admin{}
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, email, name, name_ar, auth_hash, kek_salt, wrapped_vault_key, totp_secret, totp_enabled, created_at
+		`SELECT id, email, name, name_ar, auth_hash, kek_salt, wrapped_vault_key, totp_secret, totp_enabled, monthly_report, payment_reminders, rotation_reminders, upcoming_payments, breach_alerts, language, created_at
 		 FROM admin WHERE id = $1`,
 		id,
-	).Scan(&a.ID, &a.Email, &a.Name, &a.NameAr, &a.AuthHash, &a.KEKSalt, &a.WrappedVaultKey, &a.TOTPSecret, &a.TOTPEnabled, &a.CreatedAt)
+	).Scan(&a.ID, &a.Email, &a.Name, &a.NameAr, &a.AuthHash, &a.KEKSalt, &a.WrappedVaultKey, &a.TOTPSecret, &a.TOTPEnabled, &a.MonthlyReport, &a.PaymentReminders, &a.RotationReminders, &a.UpcomingPayments, &a.BreachAlerts, &a.Language, &a.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -110,17 +116,29 @@ func (s *AdminStore) GetByID(ctx context.Context, id string) (*Admin, error) {
 
 // AdminInfo is the safe, secret-free view of an admin for listing.
 type AdminInfo struct {
-	ID          string    `json:"id"`
-	Email       string    `json:"email"`
-	Name        string    `json:"name"`
-	NameAr      *string   `json:"name_ar,omitempty"`
-	TOTPEnabled bool      `json:"totp_enabled"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string  `json:"id"`
+	Email       string  `json:"email"`
+	Name        string  `json:"name"`
+	NameAr      *string `json:"name_ar,omitempty"`
+	TOTPEnabled bool    `json:"totp_enabled"`
+	// MonthlyReport is whether this admin gets last month's payment history by email.
+	MonthlyReport bool `json:"monthly_report"`
+	// PaymentReminders is whether this admin gets daily due-payment reminders.
+	PaymentReminders bool `json:"payment_reminders"`
+	// RotationReminders is whether this admin gets daily password-rotation reminders.
+	RotationReminders bool `json:"rotation_reminders"`
+	// UpcomingPayments is whether this admin gets the monthly upcoming-payments email.
+	UpcomingPayments bool `json:"upcoming_payments"`
+	// BreachAlerts is whether this admin is emailed when a scan finds a new breach.
+	BreachAlerts bool `json:"breach_alerts"`
+	// Language is the admin's UI language, which their emails follow.
+	Language  string    `json:"language"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // List returns all admins as secret-free info, oldest first.
 func (s *AdminStore) List(ctx context.Context) ([]AdminInfo, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, email, name, name_ar, totp_enabled, created_at FROM admin ORDER BY created_at`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, email, name, name_ar, totp_enabled, monthly_report, payment_reminders, rotation_reminders, upcoming_payments, breach_alerts, language, created_at FROM admin ORDER BY created_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -128,12 +146,230 @@ func (s *AdminStore) List(ctx context.Context) ([]AdminInfo, error) {
 	var out []AdminInfo
 	for rows.Next() {
 		var a AdminInfo
-		if err := rows.Scan(&a.ID, &a.Email, &a.Name, &a.NameAr, &a.TOTPEnabled, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Email, &a.Name, &a.NameAr, &a.TOTPEnabled, &a.MonthlyReport, &a.PaymentReminders, &a.RotationReminders, &a.UpcomingPayments, &a.BreachAlerts, &a.Language, &a.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+// --- Monthly payment report ------------------------------------------------
+
+// SetLanguage records the admin's UI language so their emails follow it. Only
+// "en" and "ar" are accepted.
+func (s *AdminStore) SetLanguage(ctx context.Context, id, lang string) error {
+	if lang != "en" && lang != "ar" {
+		return errors.New("unsupported language")
+	}
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET language = $2 WHERE id = $1`, id, lang)
+	if err != nil {
+		return err
+	}
+	if affected(res) == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetMonthlyReport turns the monthly payment-history email on or off for an admin.
+// When enabling, `baseline` ("YYYY-MM", the month that just ended) is recorded as
+// already-sent so opting in mid-month does not trigger an immediate backfill — the
+// first report arrives when the *next* month completes.
+func (s *AdminStore) SetMonthlyReport(ctx context.Context, id string, on bool, baseline string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET monthly_report = $2,
+		   monthly_report_last = CASE WHEN $2 = 1 THEN $3 ELSE monthly_report_last END,
+		   updated_at = CURRENT_TIMESTAMP
+		 WHERE id = $1`,
+		id, on, baseline)
+	if err != nil {
+		return err
+	}
+	if affected(res) == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetPaymentReminders turns the daily due-payment reminder on or off for an admin.
+// When enabling, `baseline` ("YYYY-MM-DD", today) is recorded as already-sent so
+// opting in doesn't fire a reminder the same day — the first one is tomorrow's.
+func (s *AdminStore) SetPaymentReminders(ctx context.Context, id string, on bool, baseline string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET payment_reminders = $2,
+		   payment_reminder_last = CASE WHEN $2 = 1 THEN $3 ELSE payment_reminder_last END,
+		   updated_at = CURRENT_TIMESTAMP
+		 WHERE id = $1`,
+		id, on, baseline)
+	if err != nil {
+		return err
+	}
+	if affected(res) == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ListReminderDue returns opted-in admins who have not yet been sent a reminder
+// on `day` ("YYYY-MM-DD") — i.e. at most one reminder per admin per day.
+func (s *AdminStore) ListReminderDue(ctx context.Context, day string) ([]ReportRecipient, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, email, name, COALESCE(name_ar, ''), language FROM admin WHERE payment_reminders = 1 AND payment_reminder_last < $1 ORDER BY created_at`,
+		day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReportRecipient
+	for rows.Next() {
+		var r ReportRecipient
+		if err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.NameAr, &r.Language); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// MarkReminderSent records that `day`'s reminder was delivered to this admin.
+func (s *AdminStore) MarkReminderSent(ctx context.Context, id, day string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET payment_reminder_last = $2 WHERE id = $1 AND payment_reminder_last < $2`, id, day)
+	return err
+}
+
+// SetRotationReminders turns the daily password-rotation reminder on or off for an
+// admin. When enabling, `baseline` ("YYYY-MM-DD", today) is recorded as already-sent
+// so opting in doesn't fire a reminder the same day.
+func (s *AdminStore) SetRotationReminders(ctx context.Context, id string, on bool, baseline string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET rotation_reminders = $2,
+		   rotation_reminder_last = CASE WHEN $2 = 1 THEN $3 ELSE rotation_reminder_last END,
+		   updated_at = CURRENT_TIMESTAMP
+		 WHERE id = $1`,
+		id, on, baseline)
+	if err != nil {
+		return err
+	}
+	if affected(res) == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ListRotationDue returns opted-in admins who have not yet been sent a rotation
+// reminder on `day` ("YYYY-MM-DD") — at most one per admin per day.
+func (s *AdminStore) ListRotationDue(ctx context.Context, day string) ([]ReportRecipient, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, email, name, COALESCE(name_ar, ''), language FROM admin WHERE rotation_reminders = 1 AND rotation_reminder_last < $1 ORDER BY created_at`,
+		day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReportRecipient
+	for rows.Next() {
+		var r ReportRecipient
+		if err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.NameAr, &r.Language); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// MarkRotationSent records that `day`'s rotation reminder was delivered to this admin.
+func (s *AdminStore) MarkRotationSent(ctx context.Context, id, day string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET rotation_reminder_last = $2 WHERE id = $1 AND rotation_reminder_last < $2`, id, day)
+	return err
+}
+
+// SetUpcomingPayments turns the monthly upcoming-payments email on or off for an
+// admin. When enabling, `baseline` ("YYYY-MM", the current month) is recorded as
+// already handled so opting in mid-month doesn't send this month's list.
+func (s *AdminStore) SetUpcomingPayments(ctx context.Context, id string, on bool, baseline string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET upcoming_payments = $2,
+		   upcoming_payments_last = CASE WHEN $2 = 1 THEN $3 ELSE upcoming_payments_last END,
+		   updated_at = CURRENT_TIMESTAMP
+		 WHERE id = $1`,
+		id, on, baseline)
+	if err != nil {
+		return err
+	}
+	if affected(res) == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ListUpcomingDue returns opted-in admins whose upcoming-payments email for `month`
+// ("YYYY-MM") has not been handled yet — at most one per admin per month.
+func (s *AdminStore) ListUpcomingDue(ctx context.Context, month string) ([]ReportRecipient, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, email, name, COALESCE(name_ar, ''), language FROM admin WHERE upcoming_payments = 1 AND upcoming_payments_last < $1 ORDER BY created_at`,
+		month)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReportRecipient
+	for rows.Next() {
+		var r ReportRecipient
+		if err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.NameAr, &r.Language); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// MarkUpcomingSent records that `month`'s upcoming-payments email was handled for
+// this admin (delivered, or deliberately skipped because nothing was scheduled).
+func (s *AdminStore) MarkUpcomingSent(ctx context.Context, id, month string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET upcoming_payments_last = $2 WHERE id = $1 AND upcoming_payments_last < $2`, id, month)
+	return err
+}
+
+// ReportRecipient is an admin who should receive the monthly report.
+type ReportRecipient struct {
+	ID       string
+	Email    string
+	Name     string
+	NameAr   string // empty when the admin has no Arabic name
+	Language string // "en" or "ar"
+}
+
+// ListReportDue returns opted-in admins whose last-sent month is earlier than
+// `month` ("YYYY-MM"), i.e. who have not yet received that month's report.
+func (s *AdminStore) ListReportDue(ctx context.Context, month string) ([]ReportRecipient, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, email, name, COALESCE(name_ar, ''), language FROM admin WHERE monthly_report = 1 AND monthly_report_last < $1 ORDER BY created_at`,
+		month)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReportRecipient
+	for rows.Next() {
+		var r ReportRecipient
+		if err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.NameAr, &r.Language); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// MarkReportSent records that `month`'s report was delivered to this admin.
+func (s *AdminStore) MarkReportSent(ctx context.Context, id, month string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET monthly_report_last = $2 WHERE id = $1 AND monthly_report_last < $2`, id, month)
+	return err
 }
 
 // UpdateCredentials replaces an admin's login hash, KEK salt, and wrapped Vault
@@ -278,4 +514,101 @@ func (s *AdminStore) BackupCodesRemaining(ctx context.Context, id string) (int, 
 	err := s.db.QueryRowContext(ctx,
 		`SELECT count(*) FROM admin_backup_code WHERE admin_id = $1 AND used = 0`, id).Scan(&n)
 	return n, err
+}
+
+// SetBreachAlerts turns the "email me when a new breach is found" alert on or off.
+// There is no schedule or baseline: only breaches found after this point are sent.
+func (s *AdminStore) SetBreachAlerts(ctx context.Context, id string, on bool) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET breach_alerts = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, id, on)
+	if err != nil {
+		return err
+	}
+	if affected(res) == 0 {
+		return ErrNotFound
+	}
+	if !on {
+		return s.ClearBreachPending(ctx, id) // an alert that was still waiting is dropped
+	}
+	return nil
+}
+
+// AddBreachPending queues undelivered breach alerts for an admin (one row per account).
+func (s *AdminStore) AddBreachPending(ctx context.Context, adminID string, accountIDs []string) error {
+	for _, id := range accountIDs {
+		if _, err := s.db.ExecContext(ctx,
+			`INSERT OR IGNORE INTO breach_alert_pending (admin_id, account_id) VALUES ($1, $2)`, adminID, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ClearBreachPending removes everything queued for an admin (after delivery).
+func (s *AdminStore) ClearBreachPending(ctx context.Context, adminID string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM breach_alert_pending WHERE admin_id = $1`, adminID)
+	return err
+}
+
+// ListBreachPendingRecipients returns opted-in admins who still have undelivered
+// breach alerts.
+func (s *AdminStore) ListBreachPendingRecipients(ctx context.Context) ([]ReportRecipient, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, email, name, COALESCE(name_ar, ''), language FROM admin
+		 WHERE breach_alerts = 1 AND id IN (SELECT admin_id FROM breach_alert_pending) ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReportRecipient
+	for rows.Next() {
+		var r ReportRecipient
+		if err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.NameAr, &r.Language); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// PendingBreachHits returns the queued alerts for an admin that are still true: the
+// account is active and its password is still flagged (with its current count).
+func (s *AdminStore) PendingBreachHits(ctx context.Context, adminID string) ([]BreachHit, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT a.id, a.service, COALESCE(a.login, ''), a.breach_count FROM breach_alert_pending p
+		 JOIN account a ON a.id = p.account_id
+		 WHERE p.admin_id = $1 AND a.status = 'active' AND a.breach_count > 0
+		 ORDER BY a.breach_count DESC, a.service`, adminID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BreachHit
+	for rows.Next() {
+		var h BreachHit
+		if err := rows.Scan(&h.ID, &h.Service, &h.Login, &h.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
+}
+
+// ListBreachAlertRecipients returns every admin who has breach alerts turned on.
+func (s *AdminStore) ListBreachAlertRecipients(ctx context.Context) ([]ReportRecipient, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, email, name, COALESCE(name_ar, ''), language FROM admin WHERE breach_alerts = 1 ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReportRecipient
+	for rows.Next() {
+		var r ReportRecipient
+		if err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.NameAr, &r.Language); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/FayyazB106/account-manager/internal/config"
 	"github.com/FayyazB106/account-manager/internal/db"
 	"github.com/FayyazB106/account-manager/internal/rates"
+	"github.com/FayyazB106/account-manager/internal/report"
 	"github.com/FayyazB106/account-manager/internal/store"
 	"github.com/FayyazB106/account-manager/internal/update"
 	"github.com/FayyazB106/account-manager/internal/webui"
@@ -154,6 +155,21 @@ func main() {
 	backups.SetAuditLogger(sysAudit)
 	breaches.SetAuditLogger(sysAudit)
 
+	// Email (SMTP) config + the monthly payment-history report. Like the breach
+	// monitor it reads the master key lazily, since the vault may be unlocked later.
+	reports := report.New(settings, srv.Admins, srv.Payments, srv.Currencies, accounts, srv.MasterKeyValue)
+	reports.SetAuditLogger(sysAudit)
+	srv.Reports = reports
+	// Tell opted-in admins by email as soon as a scan finds a newly breached password.
+	// Sent in the background so a slow mail server never holds up the scan.
+	breaches.OnNew = func(_ context.Context, hits []store.BreachHit) {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			reports.NotifyBreaches(ctx, hits)
+		}()
+	}
+
 	// Refresh exchange rates now and every 24h (public data — safe server-side).
 	rates.StartDaily(srv.Currencies, sysAudit)
 
@@ -162,6 +178,9 @@ func main() {
 
 	// Run scheduled breach monitoring per the stored cadence.
 	breaches.StartScheduler()
+
+	// Email last month's payment history on the 1st (and catch up if the app was off).
+	reports.StartScheduler()
 
 	// Prune the login rate-limiter's in-memory map periodically.
 	srv.StartRateLimiterSweeper()

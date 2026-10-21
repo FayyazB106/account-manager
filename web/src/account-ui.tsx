@@ -26,6 +26,7 @@ import { confirmDialog, errorAlert, toast } from "./alerts";
 import { PasswordField } from "./components/PasswordField";
 import { Combobox } from "./components/Combobox";
 import { useLayout } from "./components/Layout";
+import { localCategoryName } from "./categoryName";
 import { amountVariants } from "./money";
 import { FaChevronRight, FaTrash } from "react-icons/fa";
 
@@ -89,7 +90,8 @@ function rotationStatus(changedAt: string, everyDays?: number): PaymentStatus {
 
 export function AccountRow({ account, onOpen }: { account: AccountListItem; onOpen: () => void }) {
   const { t } = useTranslation();
-  const { lang } = useLayout();
+  const { lang, categories: allCategories } = useLayout();
+  const catName = localCategoryName(allCategories, account.category_id, account.category_name, lang);
   const isActive = account.status === "active";
   const lapsed =
     account.billing_period_months > 0 &&
@@ -104,7 +106,7 @@ export function AccountRow({ account, onOpen }: { account: AccountListItem; onOp
       <td>
         <span className="svc">
           {account.category_name && (
-            <span className="cat-tag" title={account.category_name}>
+            <span className="cat-tag" title={catName}>
               <Icon name={account.category_icon} size={13} />
             </span>
           )}
@@ -150,7 +152,8 @@ export function AccountGeneral({
   const [markingPaid, setMarkingPaid] = useState(false);
   const isActive = account.status === "active";
   const { t } = useTranslation();
-  const { lang } = useLayout();
+  const { lang, categories: allCategories } = useLayout();
+  const catName = localCategoryName(allCategories, account.category_id, account.category_name, lang);
   const seatLabel = (i: number) => (lang === "ar" && account.seats_ar?.[i] ? account.seats_ar[i]! : account.seats[i]);
 
   async function setStatus(status: "active" | "inactive") {
@@ -206,7 +209,7 @@ export function AccountGeneral({
         </div>
 
         <dl className="fields">
-          <div><dt>{t("accounts.category")}</dt><dd>{account.category_name ?? t("accounts.uncategorizedPlain")}</dd></div>
+          <div><dt>{t("accounts.category")}</dt><dd>{account.category_name ? catName : t("accounts.uncategorizedPlain")}</dd></div>
           <div><dt>{t("accounts.billing")}</dt><dd>{billingLabel(t, account.billing_period_months, account.amount)}</dd></div>
           <div><dt>{t("accounts.login")}</dt><dd>{account.login ? <CopyText value={account.login} /> : "—"}</dd></div>
           <div><dt>{t("accounts.password")}</dt><dd><SecretReveal accountId={account.id} /></dd></div>
@@ -355,7 +358,7 @@ export function AccountForm({
 }) {
   const editing = existing !== null;
   const { t } = useTranslation();
-  const { arabicEnabled } = useLayout();
+  const { arabicEnabled, lang } = useLayout();
 
   const [form, setForm] = useState<NewAccount>({
     category_id: existing?.category_id ?? defaultCategoryId ?? "",
@@ -385,7 +388,7 @@ export function AccountForm({
   // and Arabic name, shows both, and stores the English name as the seat value.
   const seatOptions = people.map((p) => ({
     value: p.name,
-    label: arabicEnabled && p.name_ar ? `${p.name} · ${p.name_ar}` : p.name,
+    label: !arabicEnabled || !p.name_ar ? p.name : lang === "ar" ? `${p.name_ar} · ${p.name}` : `${p.name} · ${p.name_ar}`,
     search: `${p.name} ${p.name_ar ?? ""}`,
   }));
 
@@ -443,7 +446,7 @@ export function AccountForm({
           <select value={form.category_id ?? ""} onChange={(e) => set("category_id", e.target.value)}>
             <option value="">{t("accounts.uncategorized")}</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>{lang === "ar" && c.name_ar ? c.name_ar : c.name}</option>
             ))}
           </select>
         </Field>

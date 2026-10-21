@@ -57,3 +57,30 @@ func TestEnvelopeUniquePerSecret(t *testing.T) {
 		t.Fatal("identical plaintexts produced identical ciphertexts")
 	}
 }
+
+// SealString/OpenString round-trip, never exposes the plaintext, and fails under
+// the wrong key or on a malformed value.
+func TestSealStringRoundTrip(t *testing.T) {
+	key, _ := RandomBytes(KeySize)
+	sealed, err := SealString(key, "re_secret-api-key")
+	if err != nil {
+		t.Fatalf("SealString: %v", err)
+	}
+	if bytes.Contains([]byte(sealed), []byte("re_secret-api-key")) {
+		t.Fatal("sealed value leaks plaintext")
+	}
+	got, err := OpenString(key, sealed)
+	if err != nil || got != "re_secret-api-key" {
+		t.Fatalf("OpenString = %q, %v", got, err)
+	}
+
+	other, _ := RandomBytes(KeySize)
+	if _, err := OpenString(other, sealed); err == nil {
+		t.Fatal("OpenString succeeded with the wrong key")
+	}
+	for _, bad := range []string{"", "plain", "v1:nodot", "v1:!!.!!"} {
+		if _, err := OpenString(key, bad); err == nil {
+			t.Fatalf("OpenString(%q) should fail", bad)
+		}
+	}
+}

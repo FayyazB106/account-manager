@@ -75,6 +75,14 @@ timestamp, actor, action, target, ip, result[, detail]
 | `mfa.setup` | Started 2FA enrollment (generated a secret/QR). |
 | `mfa.enable` | 2FA turned on for the admin. |
 | `mfa.disable` | 2FA turned off for the admin. |
+| `profile.monthly_report` | The signed-in admin turned their monthly payment-history email on or off. |
+| `profile.payment_reminders` | The signed-in admin turned their daily payment-reminder email on or off. |
+| `profile.rotation_reminders` | The signed-in admin turned their daily password-rotation reminder email on or off. |
+| `profile.breach_alerts` | The signed-in admin turned their breach-alert email on or off. |
+| `profile.upcoming_payments` | The signed-in admin turned their monthly upcoming-payments email on or off. |
+
+> The language the app is showing is sent with every request and noted as the language your emails
+> are written in. That is deliberately **not** logged — it is a display preference.
 
 ### Categories
 | Action | Meaning |
@@ -97,6 +105,14 @@ timestamp, actor, action, target, ip, result[, detail]
 | `settings.purge_arabic` | Arabic translation data was purged. |
 | `breach.scan` | A breach (HIBP) scan was run. |
 | `backup.create` / `backup.restore` / `backup.download` / `backup.delete` | Backup managed. |
+| `smtp.update` | The email (SMTP) configuration was saved. The password is never logged. |
+| `smtp.toggle` | Email was switched on or off (the master switch in Settings → Email). |
+| `smtp.test` | A test email was sent to the signed-in admin. `fail` = the provider rejected it or was unreachable. |
+| `report.preview` | An admin emailed themselves last month's payment report on demand (**Send Now**). |
+| `reminder.preview` | An admin emailed themselves the current payment reminder on demand (**Send Now**). |
+| `breach_alert.preview` | An admin emailed themselves the passwords currently flagged as breached on demand (**Send Now**). |
+| `rotation.preview` | An admin emailed themselves the current password-rotation reminder on demand (**Send Now**). |
+| `upcoming.preview` | An admin emailed themselves this month's upcoming payments on demand (**Send Now**). |
 
 ### System & background jobs
 These are recorded by the server itself, with actor `system` (they also print to
@@ -109,6 +125,11 @@ the server's terminal). They cover the scheduled jobs and startup.
 | `rates.update` | Exchange rates were refreshed (`fail` = the rates provider was unreachable; the previous rates are kept). |
 | `breach.scan` (actor `system`) | A **scheduled** breach scan ran. The detail is `scheduled / N checked / M skipped`. `result` is `fail` when nothing could be checked but accounts were skipped — usually the server itself can't reach HIBP. |
 | `backup.create` (actor `system`) | A **scheduled** backup ran (`ok` with the file name, or `fail`). |
+| `upcoming.send` (actor `system`) | The **monthly upcoming-payments** email was sent. The target is the recipient, the detail is `YYYY-MM / N payments` (`ok`) or the month plus the error (`fail`). A month with no payments sends nothing and is not logged. |
+| `breach.alert` (actor `system`) | A **breach alert** was emailed right after a scan found newly breached passwords (not scheduled). The target is the recipient, the detail is `N new` (`ok`, with `(retried)` when it only went through on a later attempt) or the error plus `(will retry)` (`fail`). A failed alert is kept and retried about every 30 minutes; only the first failure is logged. |
+| `rotation.send` (actor `system`) | A **scheduled daily password-rotation reminder** was emailed. The target is the recipient, the detail is `YYYY-MM-DD / N due` (`ok`) or the date plus the error (`fail`). Retried every 30 minutes until it goes through; only the first failure is logged. |
+| `reminder.send` (actor `system`) | A **scheduled daily payment reminder** was emailed. The target is the recipient, the detail is `YYYY-MM-DD / N due` (`ok`) or the date plus the error (`fail`). Retried every 30 minutes until it goes through; only the first failure is logged. |
+| `report.send` (actor `system`) | The **monthly payment report** was emailed. The target is the recipient, the detail is `YYYY-MM / N payments` (`ok`) or the month plus the error (`fail`). A failed send is retried every 30 minutes until it goes through; only the first failure is logged. |
 
 > **Why a scan can show `0 checked, N skipped`:** the count only rises when an
 > account's password is decrypted *and* its HIBP lookup succeeds. If the

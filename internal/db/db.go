@@ -16,7 +16,7 @@ var schemaSQL string
 // schemaVersion is the latest schema version. A fresh database applies schema.sql
 // (which is the full latest schema) and jumps straight to this version; an
 // existing database runs each newer step in `migrations`.
-const schemaVersion = 8
+const schemaVersion = 15
 
 // migrations holds incremental steps for databases created at an earlier version.
 // schema.sql already reflects the latest state, so a fresh install never runs these.
@@ -85,6 +85,35 @@ CREATE TABLE payment (
 );
 CREATE INDEX idx_payment_account ON payment (account_id);
 CREATE INDEX idx_payment_paid_on ON payment (paid_on);
+`,
+	9: `
+ALTER TABLE admin ADD COLUMN monthly_report INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE admin ADD COLUMN monthly_report_last TEXT NOT NULL DEFAULT '';
+`,
+	10: `
+ALTER TABLE admin ADD COLUMN payment_reminders INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE admin ADD COLUMN payment_reminder_last TEXT NOT NULL DEFAULT '';
+`,
+	11: `
+ALTER TABLE admin ADD COLUMN rotation_reminders INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE admin ADD COLUMN rotation_reminder_last TEXT NOT NULL DEFAULT '';
+`,
+	12: `
+ALTER TABLE admin ADD COLUMN upcoming_payments INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE admin ADD COLUMN upcoming_payments_last TEXT NOT NULL DEFAULT '';
+`,
+	13: `
+ALTER TABLE admin ADD COLUMN language TEXT NOT NULL DEFAULT 'en';
+`,
+	14: `
+ALTER TABLE admin ADD COLUMN breach_alerts INTEGER NOT NULL DEFAULT 0;
+`,
+	15: `
+CREATE TABLE IF NOT EXISTS breach_alert_pending (
+    admin_id   TEXT NOT NULL REFERENCES admin (id) ON DELETE CASCADE,
+    account_id TEXT NOT NULL REFERENCES account (id) ON DELETE CASCADE,
+    PRIMARY KEY (admin_id, account_id)
+);
 `,
 }
 

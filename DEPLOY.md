@@ -76,7 +76,12 @@ terminate TLS.
    start it with `HOST=0.0.0.0`. After you can log in, set it permanently in
    **Settings → Deployment** ("Accessible on the network"), plus the **Public URL**
    (your domain) so links/cookies are correct. Changes there apply on restart.
-4. **Map the domain** (e.g. `accounts.example.com`) to `http://<host>:8080` in your
+4. **Create the first admin.** With `MASTER_KEY` set the vault starts unlocked, so the browser
+   setup (passphrase) is skipped. Open the app once: on a fresh install it shows a
+   **Create the first admin** form (this only appears while no admin exists). Do this right
+   away, ideally over an SSH tunnel (`ssh -L 8080:localhost:8080 user@host`, then
+   `http://localhost:8080`) so nobody else can reach the app before an admin exists.
+5. **Map the domain** (e.g. `accounts.example.com`) to `http://<host>:8080` in your
    reverse proxy. The proxy should terminate TLS and
    pass `X-Forwarded-Proto: https` and `X-Forwarded-For` (so secure cookies, HSTS,
    and audit-log client IPs are correct).
@@ -100,6 +105,25 @@ WantedBy=multi-user.target
 ```bash
 sudo systemctl daemon-reload && sudo systemctl enable --now account-manager
 ```
+
+### Updating a Linux server
+
+A server never updates itself: the in-app banner only tells you a release exists. To update,
+use [`scripts/update.sh`](scripts/update.sh) (copy it to the server once):
+
+```bash
+sudo bash update.sh v1.1.0                 # download that release, verify it, install it
+sudo bash update.sh latest                 # the newest release
+sudo bash update.sh ./account-manager-linux-amd64.tar.gz   # a tarball you copied over
+```
+
+It verifies the download against the release's `SHA256SUMS`, backs up the binary and the
+`data/` folder next to them (`*.bak-<timestamp>` — delete them when you're happy), stops the
+service, installs the new binary, starts it and checks that it answers. If it doesn't come up
+it restores the old binary and data and starts the old version. Your `.env` and `data/` are
+never overwritten. The database upgrades itself on first start, and older versions can't open
+an upgraded database — which is why it keeps the backup. Defaults can be changed with
+`INSTALL_DIR`, `SERVICE`, `SERVICE_USER` and `PORT` environment variables (see the top of the script).
 
 ### Windows server
 
@@ -187,7 +211,7 @@ and a "Check now" button).
   deliberately *not* runtime-configurable, so nothing can redirect the updater
   (which downloads + runs an installer) at an untrusted release. The check is
   best-effort — if GitHub is unreachable, it silently reports "no update".
-- **Applying (desktop, one-click):** click **Update now**. The app downloads the
+- **Applying (desktop, one-click):** click **Update now**. The confirm dialog has a **"Back up my data first"** box, ticked by default: the app makes a backup (the same as **Settings → Configuration → Backups**) before doing anything else, and if the backup fails the update does not start. Then the app downloads the
   right file for your OS, **verifies its SHA256** against the release's `SHA256SUMS`
   before running it, then:
   - **Windows** → runs the new installer **silently** (a progress bar, no wizard
@@ -195,8 +219,9 @@ and a "Check now" button).
     choices are preserved.
   - **macOS** → opens the new `.dmg` (drag to replace, then reopen).
 - **Servers / Linux:** **notify only** — the banner links to the release, but the
-  app never self-restarts a service. Update with your normal deploy step (replace
-  the binary / re-run the installer).
+  app never self-restarts a service. On Linux, run [`scripts/update.sh`](scripts/update.sh)
+  (backs up, verifies the download, swaps the binary, checks it starts, rolls back if not) —
+  see [Updating a Linux server](#updating-a-linux-server).
 
 > The download is always checksum-verified before it's executed, so a tampered or
 > interrupted download is rejected rather than run.

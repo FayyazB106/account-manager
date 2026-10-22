@@ -28,7 +28,15 @@ func (s *Server) appState() string {
 }
 
 func (s *Server) status(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"state": s.appState()})
+	out := map[string]string{"state": s.appState()}
+	// Server mode (MASTER_KEY in the environment) starts unlocked with no admin and
+	// skips the browser setup, so tell the UI to offer creating the first admin.
+	if out["state"] == "ready" {
+		if n, err := s.Admins.Count(r.Context()); err == nil && n == 0 {
+			out["needs_admin"] = "1"
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 type setupInput struct {

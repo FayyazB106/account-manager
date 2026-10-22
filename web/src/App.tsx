@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { hasToken, restoreSession, getAppState, type AppState } from "./api";
+import { hasToken, restoreSession, getAppStatus, type AppState } from "./api";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupPage } from "./pages/SetupPage";
+import { FirstAdminPage } from "./pages/FirstAdminPage";
 import { UnlockPage } from "./pages/UnlockPage";
 import { HomePage } from "./pages/HomePage";
 import { AccountsPage } from "./pages/AccountsPage";
@@ -42,10 +43,13 @@ export default function App() {
   // ready. When ready, also try to restore a session from the refresh cookie
   // (the access token is memory-only and gone after a reload).
   const [state, setState] = useState<AppState | null>(null);
+  // True on an unlocked vault with no admin yet (server mode): offer to create one.
+  const [needsAdmin, setNeedsAdmin] = useState(false);
   useEffect(() => {
-    getAppState().then(async (st) => {
-      if (st === "ready") await restoreSession();
-      setState(st);
+    getAppStatus().then(async (st) => {
+      if (st.state === "ready" && !st.needsAdmin) await restoreSession();
+      setNeedsAdmin(st.needsAdmin);
+      setState(st.state);
     });
   }, []);
 
@@ -57,6 +61,9 @@ export default function App() {
   }
   if (state === "locked") {
     return <UnlockPage onUnlocked={() => setState("ready")} />;
+  }
+  if (needsAdmin) {
+    return <FirstAdminPage onDone={() => setNeedsAdmin(false)} />;
   }
 
   return (

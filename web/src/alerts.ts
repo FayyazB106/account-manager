@@ -38,6 +38,33 @@ export async function confirmDialog(opts: {
   return r.isConfirmed;
 }
 
+// Like confirmDialog, plus one checkbox (e.g. "Back up first"). Resolves with whether
+// the user confirmed and whether the box was ticked.
+export async function confirmWithCheckbox(opts: {
+  title: string;
+  text: string;
+  confirmText?: string;
+  checkboxLabel: string;
+  checked?: boolean;
+}): Promise<{ confirmed: boolean; checked: boolean }> {
+  const r = await Swal.fire({
+    ...base(),
+    icon: "warning",
+    title: opts.title,
+    text: opts.text,
+    input: "checkbox",
+    inputValue: opts.checked === false ? 0 : 1,
+    inputPlaceholder: opts.checkboxLabel,
+    showCancelButton: true,
+    confirmButtonText: opts.confirmText ?? i18n.t("common.confirm"),
+    cancelButtonText: i18n.t("common.cancel"),
+    confirmButtonColor: theme.accent,
+    cancelButtonColor: theme.borderStrong,
+    iconColor: theme.warn,
+  });
+  return { confirmed: r.isConfirmed, checked: !!r.value };
+}
+
 // A brief top-right success toast (used for "copied", etc.).
 export function toast(message: string) {
   const rtl = document.documentElement.dir === "rtl";

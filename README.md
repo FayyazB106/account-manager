@@ -59,7 +59,7 @@ there's nothing to install or migrate.
 - **Clipboard auto-clear** after copying a secret (configurable; **Settings → Configuration**). Note: this wipes the *active* clipboard, but a browser cannot clear **Windows Clipboard History (Win+V)** or cloud clipboard sync — disable/clear those at the OS level if that matters.
 - Login rate-limiting + lockout, encrypted attachments, and in-app backups.
 - **Email reports and reminders** — connect any SMTP account (**Settings → Email**), then each admin chooses what they get under **Settings → Admin → Send Emails**: last month's payment history (Excel) and the month's upcoming payments, both on the 1st, plus daily reminders while a payment is due or a password needs changing. Each email is written in the receiving admin's own language (English or Arabic). See [Email](#email-reports-smtp).
-- **Update checks** — the app notifies you in-app when a new release is available and (on desktop) can one-click update; downloads are **SHA256-verified** against the release before running. Toggle in **Settings → Configuration**. See [`DEPLOY.md`](DEPLOY.md#updating).
+- **Update checks** — the app notifies you in-app when a new release is available and (on desktop) can one-click update; downloads are **SHA256-verified** against the release before running. Toggle in **Settings → Configuration**. A Linux server never updates itself; it only notifies you, and [`scripts/update.sh`](scripts/update.sh) does the update safely (see [`DEPLOY.md`](DEPLOY.md#updating-a-linux-server)).
 
 ### Where it listens
 

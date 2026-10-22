@@ -8,9 +8,10 @@ import {
   setSetting, setCurrencyActive, purgeArabic, getSettings, logout,
   listBackups, createBackup, restoreBackup, deleteBackup, downloadBackup, type BackupInfo,
   getBreachStatus, scanBreaches,
-  getVersion, checkUpdate, applyUpdate, type VersionInfo,
+  getVersion, checkUpdate, type VersionInfo,
 } from "../api";
 import { confirmDialog, errorAlert, toast } from "../alerts";
+import { confirmAndApplyUpdate } from "../updateFlow";
 import { WEEKDAYS } from "../config";
 import { Button } from "../components/Button";
 import { IconButton } from "../components/IconButton";
@@ -97,19 +98,9 @@ function UpdatesSection() {
     finally { setBusy(false); }
   }
 
-  async function updateNow() {
+  function updateNow() {
     if (!info) return;
-    const mac = info.os === "darwin";
-    const ok = await confirmDialog({
-      title: t("update.confirmTitle", { version: info.latest }),
-      text: mac ? t("update.confirmTextMac") : t("update.confirmText"),
-      confirmText: t("update.updateNow"),
-    });
-    if (!ok) return;
-    setBusy(true);
-    try { await applyUpdate(); toast(mac ? t("update.startedMac") : t("update.started")); }
-    catch (e) { errorAlert((e as Error).message); }
-    finally { setBusy(false); }
+    return confirmAndApplyUpdate(info, setBusy);
   }
 
   const canUpdate = !!info?.updateAvailable && !!info?.canApply;

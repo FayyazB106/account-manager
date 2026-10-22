@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getVersion, applyUpdate, type VersionInfo } from "../api";
-import { confirmDialog, toast, errorAlert } from "../alerts";
+import { getVersion, type VersionInfo } from "../api";
+import { confirmAndApplyUpdate } from "../updateFlow";
 import { Button } from "./Button";
 
 // UpdateBanner shows a dismissible notice when a newer release is available.
@@ -46,23 +46,8 @@ export function UpdateBanner() {
     try { sessionStorage.setItem(`am_update_dismissed_${info!.latest}`, "1"); } catch { /* ignore */ }
   }
 
-  async function update() {
-    const mac = info!.os === "darwin";
-    const ok = await confirmDialog({
-      title: t("update.confirmTitle", { version: info!.latest }),
-      text: mac ? t("update.confirmTextMac") : t("update.confirmText"),
-      confirmText: t("update.updateNow"),
-    });
-    if (!ok) return;
-    setBusy(true);
-    try {
-      await applyUpdate();
-      toast(mac ? t("update.startedMac") : t("update.started"));
-    } catch (e) {
-      errorAlert((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+  function update() {
+    return confirmAndApplyUpdate(info!, setBusy);
   }
 
   return (

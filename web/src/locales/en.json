@@ -18,6 +18,11 @@
     "passphraseMismatch": "Passphrases do not match.",
     "passwordShort": "Password must be at least 12 characters."
   },
+  "firstAdmin": {
+    "title": "Create the first admin",
+    "desc": "The vault is unlocked but has no admin yet. Create the first admin account to sign in. This option disappears once an admin exists.",
+    "create": "Create admin"
+  },
   "unlock": {
     "title": "Unlock vault",
     "desc": "Enter the vault passphrase to unlock the encrypted data.",
@@ -40,6 +45,9 @@
     "updating": "Updating…",
     "started": "Update started — the app will restart.",
     "startedMac": "Downloaded — opening the installer. Quit from the menu bar, drag the new app to Applications, then reopen.",
+    "backupFirst": "Back up my data first (recommended)",
+    "backupDone": "Backup created",
+    "backupFailed": "The backup failed, so the update was not started. {{error}}",
     "confirmTitle": "Update to v{{version}}?",
     "confirmText": "The app will download and verify the update, then restart to install it.",
     "confirmTextMac": "The app will download and verify the update, then open the installer. Quit it from the menu bar, drag the new app to Applications, and reopen."

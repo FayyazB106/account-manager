@@ -181,14 +181,21 @@ export function logout() {
 // admin), "locked" = enter passphrase to unseal, "ready" = normal login/app.
 export type AppState = "setup" | "locked" | "ready";
 
-export async function getAppState(): Promise<AppState> {
+export async function getAppStatus(): Promise<{ state: AppState; needsAdmin: boolean }> {
   try {
     const res = await fetch(`${BASE}/status`);
-    const body = await res.json().catch(() => ({}));
-    return ((body as { state?: AppState }).state) ?? "ready";
+    const body = (await res.json().catch(() => ({}))) as { state?: AppState; needs_admin?: string };
+    return { state: body.state ?? "ready", needsAdmin: body.needs_admin === "1" };
   } catch {
-    return "ready";
+    return { state: "ready", needsAdmin: false };
   }
+}
+
+// createFirstAdmin creates the very first admin on an unlocked vault that has none
+// (server mode), then signs them in. The server refuses once any admin exists.
+export async function createFirstAdmin(email: string, password: string): Promise<void> {
+  await request("/register", { method: "POST", body: JSON.stringify({ email, password }) });
+  await login(email, password);
 }
 
 // setupApp performs first-run setup (seal key under a passphrase + create the

@@ -125,6 +125,38 @@ never overwritten. The database upgrades itself on first start, and older versio
 an upgraded database — which is why it keeps the backup. Defaults can be changed with
 `INSTALL_DIR`, `SERVICE`, `SERVICE_USER` and `PORT` environment variables (see the top of the script).
 
+### Passphrase mode on Linux (optional)
+
+The Windows and macOS apps run in *personal mode*: the master key is protected by a vault
+passphrase you type in the browser after every restart. The Linux server steps above use
+the other option, *server mode*, where `MASTER_KEY` in `.env` unlocks the vault by itself so
+the app starts unattended. Both work on Linux; pick one:
+
+| | Server mode (`MASTER_KEY`) | Passphrase mode |
+| --- | --- | --- |
+| After a reboot or restart | starts and runs by itself | **stays locked until someone enters the passphrase** in the browser |
+| Scheduled emails, breach scans and backups | keep running | **wait until the vault is unlocked** |
+| Key at rest | plain text in `.env` (keep it `chmod 600`) | sealed in `data/master.key`, useless without the passphrase |
+
+Passphrase mode is the better fit when the server is attended or the box is shared;
+server mode is the better fit when it must come back on its own after a power cut.
+
+**New install:** start the app *without* `MASTER_KEY` set. The browser shows the first-run
+setup (choose a passphrase and create the first admin); do it over an SSH tunnel as above.
+After each restart the app shows an unlock page instead of the login.
+
+**Switching an existing server-mode install:** the key is the same, so no data is
+re-encrypted. Run this once as the service user, from the install folder, and choose a
+passphrase when prompted:
+```bash
+cd /opt/account-manager
+sudo -u accountmgr bash -c 'set -a; . ./.env; set +a; ./account-manager-linux-amd64 -seal-master-key'
+```
+Then delete the `MASTER_KEY=` line from `.env`, restart the service, and unlock it in the
+browser. To go back, put `MASTER_KEY` back in `.env`. **Keep a copy of the key somewhere
+safe either way.** If you lose the passphrase *and* the key, the data cannot be recovered.
+`-change-passphrase` changes the passphrase later.
+
 ### Windows server
 
 The Windows **installer** and its tray icon are a *desktop* convenience — a headless
@@ -219,9 +251,27 @@ and a "Check now" button).
     choices are preserved.
   - **macOS** → opens the new `.dmg` (drag to replace, then reopen).
 - **Servers / Linux:** **notify only** — the banner links to the release, but the
-  app never self-restarts a service. On Linux, run [`scripts/update.sh`](scripts/update.sh)
+  app never self-restarts a service (see [why](#why-linux-servers-dont-update-themselves)). On Linux, run [`scripts/update.sh`](scripts/update.sh)
   (backs up, verifies the download, swaps the binary, checks it starts, rolls back if not) —
   see [Updating a Linux server](#updating-a-linux-server).
+
+### Why Linux servers don't update themselves
+
+This is a deliberate decision, not a missing feature. An in-app "Update now" on a server
+would mean:
+
+- the service would have to be able to **overwrite its own program file**. Normally the
+  program is owned by root and read-only to the service, so that a bug in the app can't be
+  used to change the program itself and survive restarts;
+- **every admin** (anyone with a login) could replace the running program and restart the
+  server, not just whoever has shell access to it;
+- a bad update on an unattended server would leave **nobody watching** while it is down,
+  and the one-way database upgrade would have happened without the owner deciding to.
+
+Updating a server is therefore an operator action: run
+[`scripts/update.sh`](scripts/update.sh), which backs up first and rolls back if the new
+version doesn't start. The Windows and macOS apps keep one-click updates because there the
+person at the keyboard is the one who clicks it.
 
 > The download is always checksum-verified before it's executed, so a tampered or
 > interrupted download is rejected rather than run.

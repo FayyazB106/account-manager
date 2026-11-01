@@ -519,14 +519,12 @@ func TestReminderSentOncePerDay(t *testing.T) {
 		t.Fatalf("sent = %d, want one reminder to a@example.com", len(fx.sent))
 	}
 	m := fx.sent[0]
-	if m.Subject != "Account Manager: 2 payments due" || len(m.Attachments) != 0 {
+	// Only the upcoming payment: overdue items (Figma) are never reminded about.
+	if m.Subject != "Account Manager: 1 payment due" || len(m.Attachments) != 0 {
 		t.Errorf("subject %q, attachments %d", m.Subject, len(m.Attachments))
 	}
-	if !strings.Contains(m.Body, "Figma: 2026-10-30 (3 days overdue)") || !strings.Contains(m.Body, "Zoom: 2026-11-05 (due in 3 days)") {
+	if !strings.Contains(m.Body, "Zoom: 2026-11-05 (due in 3 days)") || strings.Contains(m.Body, "Figma") {
 		t.Errorf("unexpected body:\n%s", m.Body)
-	}
-	if strings.Index(m.Body, "Figma") > strings.Index(m.Body, "Zoom") {
-		t.Error("the overdue payment should be listed first")
 	}
 
 	fx.svc.RunRemindersIfDue(ctx) // same day: no second reminder
@@ -718,11 +716,11 @@ func TestRotationReminderDailyFlow(t *testing.T) {
 		t.Fatalf("sent = %d, want one rotation reminder to a@example.com", len(fx.sent))
 	}
 	m := fx.sent[0]
-	if m.Subject != "Account Manager: 2 passwords due for rotation" || len(m.Attachments) != 0 {
+	// Only the upcoming rotation: overdue ones (Slack) are never reminded about.
+	if m.Subject != "Account Manager: 1 password due for rotation" || len(m.Attachments) != 0 {
 		t.Errorf("subject %q, attachments %d", m.Subject, len(m.Attachments))
 	}
-	if !strings.Contains(m.Body, "Slack (ops@example.com): change by 2026-10-31 (2 days overdue)") ||
-		!strings.Contains(m.Body, "Trello: change by 2026-11-07 (due in 5 days)") {
+	if !strings.Contains(m.Body, "Trello: change by 2026-11-07 (due in 5 days)") || strings.Contains(m.Body, "Slack") {
 		t.Errorf("unexpected body:\n%s", m.Body)
 	}
 	if len(audited) != 1 || audited[0] != "rotation.send:ok" {
@@ -760,7 +758,7 @@ func TestRotationAndPaymentRemindersAreIndependent(t *testing.T) {
 	_ = fx.svc.Admins.SetPaymentReminders(ctx, fx.adminA, true, "2026-11-01")
 	fx.svc.RunRemindersIfDue(ctx)
 	fx.svc.RunRotationRemindersIfDue(ctx) // already sent today → nothing new
-	if len(fx.sent) != 2 || !strings.Contains(fx.sent[1].Subject, "payments due") {
+	if len(fx.sent) != 2 || !strings.Contains(fx.sent[1].Subject, "payment due") {
 		t.Fatalf("expected one payment email on top of the rotation one, got %d", len(fx.sent))
 	}
 }
@@ -1307,10 +1305,10 @@ func TestScheduledEmailsFollowEachAdminsLanguage(t *testing.T) {
 	for _, m := range fx.sent {
 		bySubject[m.To[0]] = m.Subject
 	}
-	if bySubject["a@example.com"] != "مدير الحسابات: دفعات مستحقة (2)" {
+	if bySubject["a@example.com"] != "مدير الحسابات: دفعات مستحقة (1)" {
 		t.Errorf("A's subject = %q", bySubject["a@example.com"])
 	}
-	if bySubject["b@example.com"] != "Account Manager: 2 payments due" {
+	if bySubject["b@example.com"] != "Account Manager: 1 payment due" {
 		t.Errorf("B's subject = %q", bySubject["b@example.com"])
 	}
 
@@ -1355,5 +1353,102 @@ func TestRotationReminderWaitsForEightAM(t *testing.T) {
 	fx.svc.RunRotationRemindersIfDue(ctx)
 	if len(fx.sent) != 1 {
 		t.Fatalf("expected the rotation reminder at 08:00, sent=%d", len(fx.sent))
+	}
+}
+
+// An admin who picked specific reminder days is emailed only about items that fall on
+// those days (Zoom is 3 days away; Figma is overdue and is never reminded about by the
+// schedule); Send Now still shows everything, overdue included.
+func TestReminderDaysChoiceFiltersTheDailyEmail(t *testing.T) {
+	run := func(days []int) *fixture {
+		fx := newFixture(t)
+		ctx := context.Background()
+		_ = fx.svc.Admins.SetPaymentReminders(ctx, fx.adminA, true, "2026-11-01")
+		mask, err := store.DaysToMask(days)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := fx.svc.Admins.SetPaymentReminderDays(ctx, fx.adminA, mask); err != nil {
+			t.Fatal(err)
+		}
+		fx.svc.RunRemindersIfDue(ctx)
+		return fx
+	}
+
+	fx := run([]int{3})
+	if len(fx.sent) != 1 || !strings.Contains(fx.sent[0].Body, "Zoom") || strings.Contains(fx.sent[0].Body, "Figma") {
+		t.Fatalf("only the 3-days-before checkpoint should be listed: %v", fx.sent)
+	}
+	if fx = run([]int{1, 0}); len(fx.sent) != 0 {
+		t.Fatalf("nothing is due on a chosen day, so nothing should be sent: %v", fx.sent)
+	}
+	fx = run([]int{7, 6, 5, 4, 3, 2, 1, 0}) // the default: every day before, but never overdue
+	if len(fx.sent) != 1 || !strings.Contains(fx.sent[0].Body, "Zoom") || strings.Contains(fx.sent[0].Body, "Figma") {
+		t.Fatalf("overdue items must not be in the scheduled email: %v", fx.sent)
+	}
+
+	// Send Now ignores the choice and lists everything in the window, overdue included.
+	to := Recipient{Name: "Alice", Email: "a@example.com", Lang: LangEN}
+	n, err := fx.svc.SendReminderPreview(context.Background(), to)
+	if err != nil || n != 2 {
+		t.Fatalf("Send Now should include all items, got n=%d err=%v", n, err)
+	}
+}
+
+func TestReminderDayMasks(t *testing.T) {
+	mask, err := store.DaysToMask([]int{7, 3, 0, 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := store.MaskToDays(mask)
+	want := []int{7, 3, 0}
+	if len(got) != len(want) {
+		t.Fatalf("round trip: got %v want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("round trip: got %v want %v", got, want)
+		}
+	}
+	for _, bad := range [][]int{{}, {8}, {-1}} {
+		if _, err := store.DaysToMask(bad); err == nil {
+			t.Errorf("DaysToMask(%v) should fail", bad)
+		}
+	}
+	if d := store.MaskToDays(store.AllReminderDays); d[0] != 7 || len(d) != 8 {
+		t.Errorf("the default mask should select all eight days, got %v", d)
+	}
+	if !store.DayWanted(mask, 3) || store.DayWanted(mask, 4) || store.DayWanted(mask, -5) || store.DayWanted(mask, 8) {
+		t.Error("DayWanted gave the wrong answer")
+	}
+	if !store.DayWanted(store.PreviewDays, -5) {
+		t.Error("the Send Now mask should include overdue")
+	}
+}
+
+// An account's amount is shown in its own currency, and the month's total converts
+// every item to USD through the rates (SAR 100 at 4 SAR per USD is $25).
+func TestEmailsUseEachAccountsOwnCurrency(t *testing.T) {
+	conv := NewConverter([]store.Currency{
+		{Code: "USD", Active: true, Rate: 1},
+		{Code: "SAR", Active: true, Rate: 4},
+	})
+	month := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	items := []UpcomingItem{
+		{Service: "Zoom", Date: month.AddDate(0, 0, 4), Amount: 100, Currency: "SAR"},
+		{Service: "Figma", Date: month.AddDate(0, 0, 9), Amount: 5, Currency: ""},
+	}
+	m := upcomingMessage(Recipient{Name: "Alice", Email: "a@example.com", Lang: LangEN}, month, items, conv)
+	for _, want := range []string{"SAR 100.00", "$5.00", "$30.00 / SAR 120.00 in total"} {
+		if !strings.Contains(m.Body, want) {
+			t.Errorf("upcoming email missing %q:\n%s", want, m.Body)
+		}
+	}
+
+	amount := 12.5
+	r := reminderMessage(Recipient{Name: "Alice", Email: "a@example.com", Lang: LangEN},
+		[]DueItem{{Service: "Zoom", Days: 3, Amount: &amount, Currency: "SAR"}, {Service: "Figma", Days: 1, Amount: &amount}})
+	if !strings.Contains(r.Body, "SAR 12.50") || !strings.Contains(r.Body, "$12.50") {
+		t.Errorf("reminder should show each amount in its own currency:\n%s", r.Body)
 	}
 }

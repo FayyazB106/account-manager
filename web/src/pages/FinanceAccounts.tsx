@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import { useLayout } from "../components/Layout";
 import { localCategoryName } from "../categoryName";
 import { billingLabel } from "../account-ui";
-import { fmtMoney } from "../money";
+import { fmtMoney, withUsdAmounts } from "../money";
 import { Button } from "../components/Button";
 import { CircleButton } from "../components/CircleButton";
 import { Icon } from "../icons";
@@ -31,7 +31,11 @@ function namedUsers(seats: string[]): string {
 type SortKey = "service" | "login" | "seats" | "cost";
 
 export function FinanceAccounts() {
-  const { accounts, currencies, lang, categories } = useLayout();
+  const { accounts: rawAccounts, currencies, lang, categories } = useLayout();
+  // Every account has its own currency; the maths below (average cost, totals, the
+  // per-currency columns) needs USD, so normalise once here.
+  const accounts = useMemo(() => withUsdAmounts(rawAccounts, currencies), [rawAccounts, currencies]);
+  const ownCurrency = useMemo(() => new Map(rawAccounts.map((a) => [a.id, a.currency || "USD"])), [rawAccounts]);
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"monthly" | "yearly">("monthly");
@@ -118,8 +122,8 @@ export function FinanceAccounts() {
 
   // Export all currencies at once (not just the on-screen one), mirroring the
   // Payments export: an Amount column and an Avg-Cost column per active currency,
-  // plus a "Paid in" column. Account amounts are stored in USD base, so Paid in is
-  // always USD; conv() converts a USD value into each active currency.
+  // plus a "Paid in" column naming the account's own currency; conv() converts the
+  // (USD-normalised) value into each active currency.
   function exportExcel() {
     const conv = (usd: number, code: string, r: number) => Number((usd * (code === "USD" ? 1 : r)).toFixed(2));
     const header = [
@@ -136,7 +140,7 @@ export function FinanceAccounts() {
       a.seats.length,
       namedUsers(seatNames(a)),
       ...activeCcys.map((c) => (a.amount != null ? conv(a.amount, c.code, c.rate) : "")),
-      "USD",
+      ownCurrency.get(a.id) ?? "USD",
       billingLabel(t, a.billing_period_months, a.amount),
       ...activeCcys.map((c) => conv(rate(a), c.code, c.rate)),
     ]);

@@ -11,18 +11,19 @@ import (
 // Account is one stored credential. The password is NOT here as plaintext — it
 // lives only as the two envelope-encrypted blobs.
 type Account struct {
-	ID               string
-	CategoryID       *string
+	ID                  string
+	CategoryID          *string
 	Service             string
 	Website             *string // optional URL
 	Login               *string // optional
 	BillingPeriodMonths int
-	Amount              *float64   // optional billing amount ($)
+	Amount              *float64   // optional billing amount, in Currency
+	Currency            string     // currency of Amount (USD by default)
 	NextPaymentDate     *time.Time // optional
-	Notes            *string    // optional
-	RotateEveryDays  *int       // optional rotation policy
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	Notes               *string    // optional
+	RotateEveryDays     *int       // optional rotation policy
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 
 	// Secret material (envelope encryption). Only loaded when revealing.
 	PasswordWrappedDEK []byte
@@ -31,8 +32,8 @@ type Account struct {
 
 // AccountListItem is the safe, secret-free view returned by list endpoints.
 type AccountListItem struct {
-	ID                string     `json:"id"`
-	CategoryID        *string    `json:"category_id,omitempty"`
+	ID                  string     `json:"id"`
+	CategoryID          *string    `json:"category_id,omitempty"`
 	CategoryName        *string    `json:"category_name,omitempty"`
 	CategoryIcon        *string    `json:"category_icon,omitempty"`
 	Service             string     `json:"service"`
@@ -40,16 +41,17 @@ type AccountListItem struct {
 	Login               *string    `json:"login,omitempty"`
 	BillingPeriodMonths int        `json:"billing_period_months"`
 	Amount              *float64   `json:"amount,omitempty"`
+	Currency            string     `json:"currency"`
 	NextPaymentDate     *time.Time `json:"next_payment_date,omitempty"`
-	PasswordChangedAt time.Time  `json:"password_changed_at"`
-	RotateEveryDays   *int       `json:"rotate_every_days,omitempty"`
-	Status            string     `json:"status"`
-	Notes             *string    `json:"notes,omitempty"`
-	HasTOTP           bool       `json:"has_totp"` // a 2FA secret is stored for this account
-	BreachCount       *int       `json:"breach_count,omitempty"`       // HIBP hits (nil = never checked)
-	BreachCheckedAt   *time.Time `json:"breach_checked_at,omitempty"`
-	Seats             []string   `json:"seats"`
-	SeatsAr           []*string  `json:"seats_ar,omitempty"` // Arabic seat names, aligned by position
+	PasswordChangedAt   time.Time  `json:"password_changed_at"`
+	RotateEveryDays     *int       `json:"rotate_every_days,omitempty"`
+	Status              string     `json:"status"`
+	Notes               *string    `json:"notes,omitempty"`
+	HasTOTP             bool       `json:"has_totp"`               // a 2FA secret is stored for this account
+	BreachCount         *int       `json:"breach_count,omitempty"` // HIBP hits (nil = never checked)
+	BreachCheckedAt     *time.Time `json:"breach_checked_at,omitempty"`
+	Seats               []string   `json:"seats"`
+	SeatsAr             []*string  `json:"seats_ar,omitempty"` // Arabic seat names, aligned by position
 }
 
 type AccountStore struct {
@@ -66,11 +68,11 @@ func (s *AccountStore) Create(ctx context.Context, a *Account) (string, error) {
 	var id string
 	err := s.db.QueryRowContext(ctx,
 		`INSERT INTO account
-		   (category_id, service, website, login, billing_period_months, amount, next_payment_date, notes,
+		   (category_id, service, website, login, billing_period_months, amount, currency, next_payment_date, notes,
 		    rotate_every_days, password_wrapped_dek, password_ciphertext)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		 RETURNING id`,
-		a.CategoryID, a.Service, a.Website, a.Login, a.BillingPeriodMonths, a.Amount, dateParam(a.NextPaymentDate), a.Notes,
+		a.CategoryID, a.Service, a.Website, a.Login, a.BillingPeriodMonths, a.Amount, currencyOrUSD(a.Currency), dateParam(a.NextPaymentDate), a.Notes,
 		a.RotateEveryDays, a.PasswordWrappedDEK, a.PasswordCiphertext,
 	).Scan(&id)
 	return id, err
@@ -83,7 +85,7 @@ func (s *AccountStore) Create(ctx context.Context, a *Account) (string, error) {
 func (s *AccountStore) List(ctx context.Context) ([]AccountListItem, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT a.id, a.category_id, c.name, c.icon, a.service, a.website, a.login,
-		        a.billing_period_months, a.amount, a.next_payment_date,
+		        a.billing_period_months, a.amount, a.currency, a.next_payment_date,
 		        a.password_changed_at, a.rotate_every_days, a.status, a.notes,
 		        (a.totp_secret IS NOT NULL) AS has_totp, a.breach_count, a.breach_checked_at,
 		        (SELECT json_group_array(user_name)
@@ -104,7 +106,7 @@ func (s *AccountStore) List(ctx context.Context) ([]AccountListItem, error) {
 		var seatsJSON, seatsArJSON string
 		if err := rows.Scan(&it.ID, &it.CategoryID, &it.CategoryName, &it.CategoryIcon,
 			&it.Service, &it.Website, &it.Login,
-			&it.BillingPeriodMonths, &it.Amount, &it.NextPaymentDate,
+			&it.BillingPeriodMonths, &it.Amount, &it.Currency, &it.NextPaymentDate,
 			&it.PasswordChangedAt, &it.RotateEveryDays, &it.Status, &it.Notes,
 			&it.HasTOTP, &it.BreachCount, &it.BreachCheckedAt, &seatsJSON, &seatsArJSON); err != nil {
 			return nil, err
@@ -125,11 +127,11 @@ func (s *AccountStore) UpdateMeta(ctx context.Context, a *Account) error {
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE account SET
 		   category_id = $2, service = $3, website = $4, login = $5, billing_period_months = $6,
-		   amount = $7, next_payment_date = $8, notes = $9, rotate_every_days = $10,
+		   amount = $7, currency = $8, next_payment_date = $9, notes = $10, rotate_every_days = $11,
 		   updated_at = CURRENT_TIMESTAMP
 		 WHERE id = $1`,
 		a.ID, a.CategoryID, a.Service, a.Website, a.Login, a.BillingPeriodMonths,
-		a.Amount, dateParam(a.NextPaymentDate), a.Notes, a.RotateEveryDays)
+		a.Amount, currencyOrUSD(a.Currency), dateParam(a.NextPaymentDate), a.Notes, a.RotateEveryDays)
 	if err != nil {
 		return err
 	}
@@ -529,4 +531,12 @@ func (s *AccountStore) ListBreached(ctx context.Context) ([]BreachHit, error) {
 		out = append(out, h)
 	}
 	return out, rows.Err()
+}
+
+// currencyOrUSD defaults an unset account currency to USD.
+func currencyOrUSD(code string) string {
+	if code == "" {
+		return "USD"
+	}
+	return code
 }

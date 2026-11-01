@@ -6,6 +6,7 @@ import { allAccountTOTPCodes } from "../api";
 import { copySecret } from "../clipboard";
 import { Icon } from "../icons";
 import { CountdownRing } from "../components/CountdownRing";
+import { Pagination, usePagination } from "../components/Pagination";
 
 // AuthenticatorPage lists live 2FA codes for every account that has a stored
 // TOTP secret, searchable by service/login. One bulk request per 30s window;
@@ -48,6 +49,8 @@ export function AuthenticatorPage() {
     return a.service.toLowerCase().includes(s) || (a.login ?? "").toLowerCase().includes(s);
   });
 
+  const pager = usePagination(filtered, q.trim().toLowerCase());
+
   return (
     <div className="card">
       <div className="topbar" style={{ marginBottom: 12 }}>
@@ -66,7 +69,7 @@ export function AuthenticatorPage() {
             onChange={(e) => setQ(e.target.value)}
           />
           <ul className="auth-list">
-            {filtered.map((a) => {
+            {pager.items.map((a) => {
               const c = codes[a.id];
               return (
                 <li key={a.id} className="auth-row">
@@ -90,6 +93,7 @@ export function AuthenticatorPage() {
             })}
             {filtered.length === 0 && <li className="muted">{t("authenticator.noMatch")}</li>}
           </ul>
+          <Pagination p={pager} />
         </>
       )}
     </div>

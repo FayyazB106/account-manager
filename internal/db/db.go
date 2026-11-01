@@ -16,7 +16,7 @@ var schemaSQL string
 // schemaVersion is the latest schema version. A fresh database applies schema.sql
 // (which is the full latest schema) and jumps straight to this version; an
 // existing database runs each newer step in `migrations`.
-const schemaVersion = 15
+const schemaVersion = 17
 
 // migrations holds incremental steps for databases created at an earlier version.
 // schema.sql already reflects the latest state, so a fresh install never runs these.
@@ -114,6 +114,13 @@ CREATE TABLE IF NOT EXISTS breach_alert_pending (
     account_id TEXT NOT NULL REFERENCES account (id) ON DELETE CASCADE,
     PRIMARY KEY (admin_id, account_id)
 );
+`,
+	16: `
+ALTER TABLE admin ADD COLUMN payment_reminder_days INTEGER NOT NULL DEFAULT 255;
+ALTER TABLE admin ADD COLUMN rotation_reminder_days INTEGER NOT NULL DEFAULT 255;
+`,
+	17: `
+ALTER TABLE account ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD';
 `,
 }
 

@@ -5,7 +5,10 @@ import { useLayout } from "../components/Layout";
 import { Button } from "../components/Button";
 import { CircleButton } from "../components/CircleButton";
 import { AccountRow, AccountForm, rotationDueDate, paymentStatus } from "../account-ui";
+import { ContextMenu } from "../components/ContextMenu";
+import { FaRegClone } from "react-icons/fa";
 import type { AccountListItem } from "../api";
+import { Pagination, usePagination } from "../components/Pagination";
 
 type SortKey = "service" | "login" | "seats" | "status" | "next_payment" | "rotation";
 
@@ -57,6 +60,9 @@ export function AccountsPage() {
   }
 
   const [showAdd, setShowAdd] = useState(false);
+  // Right-click menu on a row, and the account being duplicated (if any).
+  const [menu, setMenu] = useState<{ x: number; y: number; account: AccountListItem } | null>(null);
+  const [dupe, setDupe] = useState<AccountListItem | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("service");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -87,9 +93,22 @@ export function AccountsPage() {
       const va = sortValue(a, sortKey), vb = sortValue(b, sortKey);
       if (va < vb) return -1 * dir;
       if (va > vb) return 1 * dir;
+      // Ties fall back to service, then login, so equal rows (e.g. several Autodesk
+      // accounts) always come out in a stable, readable order.
+      for (const k of ["service", "login"] as const) {
+        if (k === sortKey) continue;
+        const ta = sortValue(a, k), tb = sortValue(b, k);
+        if (ta < tb) return -1;
+        if (ta > tb) return 1;
+      }
       return 0;
     });
   }, [filtered, sortKey, sortDir]);
+
+  const pager = usePagination(
+    visible,
+    [categoryId, query, fStatus, fPayment, fRotation, fPayDate, fRotDate, sortKey, sortDir].join("|"),
+  );
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -145,13 +164,23 @@ export function AccountsPage() {
         )}
       </div>
 
-      {showAdd && (
+      {(showAdd || dupe) && (
         <AccountForm
+          key={dupe?.id ?? "new"}
           existing={null}
+          template={dupe}
           categories={categories}
           defaultCategoryId={categoryId}
-          onSaved={() => { setShowAdd(false); refresh(); }}
-          onCancel={() => setShowAdd(false)}
+          onSaved={() => { setShowAdd(false); setDupe(null); refresh(); }}
+          onCancel={() => { setShowAdd(false); setDupe(null); }}
+        />
+      )}
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[{ label: t("accounts.duplicate"), icon: <FaRegClone size={13} />, onSelect: () => setDupe(menu.account) }]}
         />
       )}
 
@@ -182,8 +211,13 @@ export function AccountsPage() {
           </tr>
         </thead>
         <tbody>
-          {visible.map((a) => (
-            <AccountRow key={a.id} account={a} onOpen={() => navigate(`/account/${a.id}`)} />
+          {pager.items.map((a) => (
+            <AccountRow
+              key={a.id}
+              account={a}
+              onOpen={() => navigate(`/account/${a.id}`)}
+              onMenu={(x, y) => setMenu({ x, y, account: a })}
+            />
           ))}
           {visible.length === 0 && (
             <tr><td colSpan={9} className="muted">{hasFilter ? t("accounts.noMatches") : t("accounts.none")}</td></tr>
@@ -191,6 +225,7 @@ export function AccountsPage() {
         </tbody>
       </table>
       </div>
+      <Pagination p={pager} />
     </>
   );
 }

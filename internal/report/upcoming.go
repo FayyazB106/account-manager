@@ -17,10 +17,11 @@ const UpcomingHour = 8
 // UpcomingItem is one payment projected to fall in a given month — the same rows
 // the Finance → Monthly Costs page lists under a month.
 type UpcomingItem struct {
-	Service string
-	Login   string
-	Date    time.Time
-	Amount  float64 // USD, as stored on the account
+	Service  string
+	Login    string
+	Date     time.Time
+	Amount   float64 // in Currency, as stored on the account
+	Currency string  // currency of Amount ("USD" if unset)
 }
 
 // addMonthsClamped adds `add` months to base, clamping the day to the target
@@ -56,7 +57,7 @@ func ProjectMonth(accounts []store.AccountListItem, month time.Time) []UpcomingI
 		}
 		start := dateOnly(*a.NextPaymentDate)
 		push := func(d time.Time) {
-			out = append(out, UpcomingItem{Service: a.Service, Login: login, Date: d, Amount: *a.Amount})
+			out = append(out, UpcomingItem{Service: a.Service, Login: login, Date: d, Amount: *a.Amount, Currency: a.Currency})
 		}
 		if a.BillingPeriodMonths <= 0 {
 			if monthIndex(start) == target {

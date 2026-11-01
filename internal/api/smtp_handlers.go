@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/FayyazB106/account-manager/internal/report"
+	"github.com/FayyazB106/account-manager/internal/store"
 )
 
 // smtpInput is the JSON body for saving the email (SMTP) configuration. An empty
@@ -212,11 +213,50 @@ func (s *Server) setRotationReminders(w http.ResponseWriter, r *http.Request) {
 	s.setDailyOptIn(w, r, "setRotationReminders", s.Reports.BaselineDay, s.Admins.SetRotationReminders)
 }
 
+// setReminderDays is the shared body of PUT /profile/payment-reminder-days and
+// /profile/rotation-reminder-days: body {"days": [7,3,1,0,-1]} (days before the due
+// date, -1 = while overdue). At least one day is required.
+func (s *Server) setReminderDays(w http.ResponseWriter, r *http.Request, where string,
+	set func(ctx context.Context, id string, mask int) error) {
+	adminID, _, _, ok := s.currentAdmin(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Days []int `json:"days"`
+	}
+	if err := decodeJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	mask, err := store.DaysToMask(body.Days)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := set(r.Context(), adminID, mask); err != nil {
+		logErr(where, err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string][]int{"days": store.MaskToDays(mask)})
+}
+
+func (s *Server) setPaymentReminderDays(w http.ResponseWriter, r *http.Request) {
+	s.setReminderDays(w, r, "setPaymentReminderDays", s.Admins.SetPaymentReminderDays)
+}
+
+func (s *Server) setRotationReminderDays(w http.ResponseWriter, r *http.Request) {
+	s.setReminderDays(w, r, "setRotationReminderDays", s.Admins.SetRotationReminderDays)
+}
+
 // setBreachAlerts handles PUT /profile/breach-alerts — the "email me when a new
 // breach is found" opt-in. It has no schedule, so there is no baseline to record.
 func (s *Server) setBreachAlerts(w http.ResponseWriter, r *http.Request) {
 	s.setDailyOptIn(w, r, "setBreachAlerts", func() string { return "" },
-		func(ctx context.Context, id string, on bool, _ string) error { return s.Admins.SetBreachAlerts(ctx, id, on) })
+		func(ctx context.Context, id string, on bool, _ string) error {
+			return s.Admins.SetBreachAlerts(ctx, id, on)
+		})
 }
 
 // previewBreachAlert handles POST /breach-alert/preview — emails the passwords

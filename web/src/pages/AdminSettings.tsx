@@ -17,6 +17,7 @@ import { CircleButton } from "../components/CircleButton";
 import { Modal } from "../components/Modal";
 import { TwoFactorCard } from "../components/TwoFactor";
 import { SendEmailsCard } from "../components/SendEmails";
+import { CelebrationSettings } from "../components/CelebrationSettings";
 import { FaTrash, FaBuilding, FaCamera, FaTimes, FaShieldAlt, FaSun, FaMoon } from "react-icons/fa";
 
 export function AdminSettings() {
@@ -29,6 +30,7 @@ export function AdminSettings() {
         </div>
         <TwoFactorCard />
         <SendEmailsCard />
+        <CelebrationSettings />
       </div>
       <AppearanceCard />
       <OrganizationCard />

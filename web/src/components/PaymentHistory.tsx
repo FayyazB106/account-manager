@@ -13,6 +13,7 @@ import { fmtMoney, amountVariants, toUSD } from "../money";
 import { CircleButton } from "./CircleButton";
 import { IconButton } from "./IconButton";
 import { PaymentForm } from "./PaymentForm";
+import { Pagination, usePagination } from "./Pagination";
 
 // PaymentHistory is the per-account ledger section: a table of recorded payments
 // (auto-logged on renewal + manual entries) with a total, plus add/edit/delete.
@@ -22,6 +23,7 @@ export function PaymentHistory({ accountId, reloadKey = 0 }: { accountId: string
   const [payments, setPayments] = useState<Payment[]>([]);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Payment | null>(null);
+  const pager = usePagination(payments, accountId);
 
   const refresh = useCallback(() => {
     listAccountPayments(accountId).then(setPayments).catch(() => {});
@@ -70,7 +72,7 @@ export function PaymentHistory({ accountId, reloadKey = 0 }: { accountId: string
               </tr>
             </thead>
             <tbody>
-              {payments.map((p) => (
+              {pager.items.map((p) => (
                 <tr key={p.id}>
                   <td className="nowrap"><span dir="ltr">{p.paid_on.slice(0, 10)}</span></td>
                   <td className="nowrap"><span dir="ltr">{fmtMoney(p.currency, p.amount)}</span></td>
@@ -102,6 +104,7 @@ export function PaymentHistory({ accountId, reloadKey = 0 }: { accountId: string
           </table>
         </div>
       )}
+      <Pagination p={pager} />
 
       {/* Notes, shown beneath the table so the rows stay scannable. */}
       {payments.some((p) => p.note) && (

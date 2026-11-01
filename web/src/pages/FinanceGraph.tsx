@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { FaChartLine, FaChartColumn } from "react-icons/fa6";
 import { FaFileExcel } from "react-icons/fa";
 import { useLayout } from "../components/Layout";
+import { withUsdAmounts } from "../money";
 import { CircleButton } from "../components/CircleButton";
 import { downloadSheet } from "./FinanceAccounts";
 import { fmtMoney } from "../money";
@@ -61,7 +62,9 @@ function projectMonths(accounts: AccountListItem[]): MonthData[] {
 }
 
 export function FinanceGraph() {
-  const { accounts, currencies } = useLayout();
+  const { accounts: rawAccounts, currencies } = useLayout();
+  // Each account has its own currency; the chart adds amounts up, so work in USD.
+  const accounts = useMemo(() => withUsdAmounts(rawAccounts, currencies), [rawAccounts, currencies]);
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [ccy, setCcy] = useState("USD");

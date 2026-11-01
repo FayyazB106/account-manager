@@ -5,6 +5,7 @@ import { listPasswordHistory, revealPasswordHistory, type PasswordHistoryEntry }
 import { errorAlert } from "../alerts";
 import { CopyText } from "./CopyText";
 import { IconButton } from "./IconButton";
+import { Pagination, usePagination } from "./Pagination";
 
 // PasswordHistory shows an account's previous passwords (newest first), each
 // reveal-on-click and click-to-copy. Renders nothing until there's history.
@@ -12,6 +13,7 @@ export function PasswordHistory({ accountId }: { accountId: string }) {
   const { t, i18n } = useTranslation();
   const [entries, setEntries] = useState<PasswordHistoryEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const pager = usePagination(entries, accountId);
 
   useEffect(() => {
     let alive = true;
@@ -38,13 +40,14 @@ export function PasswordHistory({ accountId }: { accountId: string }) {
       <h2 className="section-title">{t("history.title")}</h2>
       <p className="muted" style={{ marginTop: 0 }}>{t("history.desc")}</p>
       <ul className="pw-history-list">
-        {entries.map((e) => (
+        {pager.items.map((e) => (
           <li key={e.id}>
             <span dir="ltr" className="muted pw-history-when">{new Date(e.changed_at).toLocaleString(i18n.language)}</span>
             <HistoryReveal accountId={accountId} historyId={e.id} />
           </li>
         ))}
       </ul>
+      <Pagination p={pager} />
     </div>
   );
 }

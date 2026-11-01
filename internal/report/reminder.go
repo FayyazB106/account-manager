@@ -21,10 +21,11 @@ const ReminderHour = 8
 
 // DueItem is one active recurring payment that is due within the window or overdue.
 type DueItem struct {
-	Service string
-	Due     time.Time // calendar date of the next payment
-	Days    int       // days until due; negative = overdue
-	Amount  *float64  // USD, as stored on the account
+	Service  string
+	Due      time.Time // calendar date of the next payment
+	Days     int       // days until due; negative = overdue
+	Amount   *float64  // in Currency, as stored on the account
+	Currency string    // currency of Amount ("USD" if unset)
 }
 
 // dateOnly strips the time of day so two dates differ by a whole number of days.
@@ -48,7 +49,7 @@ func DueItems(accounts []store.AccountListItem, now time.Time) []DueItem {
 		if days > ReminderWindowDays {
 			continue
 		}
-		out = append(out, DueItem{Service: a.Service, Due: due, Days: days, Amount: a.Amount})
+		out = append(out, DueItem{Service: a.Service, Due: due, Days: days, Amount: a.Amount, Currency: a.Currency})
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if !out[i].Due.Equal(out[j].Due) {

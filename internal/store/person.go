@@ -22,7 +22,7 @@ func NewPersonStore(db *sql.DB) *PersonStore {
 }
 
 func (s *PersonStore) List(ctx context.Context) ([]Person, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, name_ar FROM person ORDER BY name`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, name_ar FROM person ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, err
 	}

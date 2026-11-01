@@ -2,11 +2,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
-  getProfile, getSMTP, setMonthlyReport, setPaymentReminders, setRotationReminders, setUpcomingPayments, setBreachAlerts,
+  getProfile, getSMTP, setMonthlyReport, setPaymentReminders, setRotationReminders, setUpcomingPayments, setBreachAlerts, setPaymentReminderDays, setRotationReminderDays,
   sendTestEmail, sendReportPreview, sendReminderPreview, sendRotationPreview, sendUpcomingPreview, sendBreachAlertPreview,
 } from "../api";
 import { errorAlert, toast } from "../alerts";
 import { Button } from "./Button";
+import { IconButton } from "./IconButton";
+import { ReminderDaysModal } from "./ReminderDaysModal";
+import { FaPencilAlt } from "react-icons/fa";
 
 type Busy = "" | "monthly" | "upcoming" | "reminders" | "rotation" | "breach" | "test"
   | "sendMonthly" | "sendUpcoming" | "sendReminders" | "sendRotation" | "sendBreach";
@@ -24,6 +27,11 @@ export function SendEmailsCard() {
   const [rotation, setRotation] = useState(false);
   const [upcoming, setUpcoming] = useState(false);
   const [breach, setBreach] = useState(false);
+  // Which days each reminder is sent on, and which one is being edited (modal).
+  const ALL_DAYS = [7, 6, 5, 4, 3, 2, 1, 0];
+  const [payDays, setPayDays] = useState<number[]>(ALL_DAYS);
+  const [rotDays, setRotDays] = useState<number[]>(ALL_DAYS);
+  const [editing, setEditing] = useState<"payment" | "rotation" | null>(null);
   const [configured, setConfigured] = useState(false);
   const [emailOn, setEmailOn] = useState(false);
   const [busy, setBusy] = useState<Busy>("");
@@ -35,6 +43,8 @@ export function SendEmailsCard() {
       setRotation(!!p.rotation_reminders);
       setUpcoming(!!p.upcoming_payments);
       setBreach(!!p.breach_alerts);
+      if (p.payment_reminder_days?.length) setPayDays(p.payment_reminder_days);
+      if (p.rotation_reminder_days?.length) setRotDays(p.rotation_reminder_days);
     }).catch(() => {});
     getSMTP().then((s) => { setConfigured(s.configured); setEmailOn(s.enabled); }).catch(() => {});
   }, []);
@@ -74,6 +84,14 @@ export function SendEmailsCard() {
     setBreach(on);
     toast(on ? t("report.enabledToast") : t("report.disabledToast"));
   });
+  async function saveDays(days: number[]) {
+    try {
+      if (editing === "payment") setPayDays((await setPaymentReminderDays(days)).days);
+      else setRotDays((await setRotationReminderDays(days)).days);
+      setEditing(null);
+      toast(t("report.daysSaved"));
+    } catch (e) { errorAlert((e as Error).message); }
+  }
   const sendTest = () => run("test", async () => {
     const r = await sendTestEmail();
     toast(t("report.testSent", { email: r.sent_to }));
@@ -141,6 +159,7 @@ export function SendEmailsCard() {
         sendLabel={busy === "sendReminders" ? t("report.sending") : t("report.sendNow")}
         onSend={sendReminders}
         sendDisabled={busy !== ""}
+        onEdit={() => setEditing("payment")}
       />
 
       <EmailRow
@@ -152,6 +171,7 @@ export function SendEmailsCard() {
         sendLabel={busy === "sendRotation" ? t("report.sending") : t("report.sendNow")}
         onSend={sendRotation}
         sendDisabled={busy !== ""}
+        onEdit={() => setEditing("rotation")}
       />
 
       <EmailRow
@@ -167,6 +187,15 @@ export function SendEmailsCard() {
 
       </fieldset>
 
+      {editing && (
+        <ReminderDaysModal
+          title={editing === "payment" ? t("report.reminderName") : t("report.rotationName")}
+          days={editing === "payment" ? payDays : rotDays}
+          onSave={saveDays}
+          onCancel={() => setEditing(null)}
+        />
+      )}
+
       {!ready && (
         <p className="field-hint">
           {!emailOn ? t("report.emailOff") : t("report.needsEmail")}{" "}
@@ -180,7 +209,7 @@ export function SendEmailsCard() {
 // EmailRow is one email the admin can receive: a switch (with what it is) on the
 // left and its "Send Now" button opposite it.
 function EmailRow({
-  name, desc, checked, switchDisabled, onToggle, sendLabel, onSend, sendDisabled,
+  name, desc, checked, switchDisabled, onToggle, sendLabel, onSend, sendDisabled, onEdit,
 }: {
   name: ReactNode;
   desc: ReactNode;
@@ -190,7 +219,9 @@ function EmailRow({
   sendLabel: ReactNode;
   onSend: () => void;
   sendDisabled: boolean;
+  onEdit?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="mail-row">
       <div className="mail-row-text">
@@ -206,7 +237,12 @@ function EmailRow({
         </label>
         <p className="field-hint" style={{ margin: "4px 0 0" }}>{desc}</p>
       </div>
-      <Button variant="ghost" onClick={onSend} disabled={sendDisabled}>{sendLabel}</Button>
+      <div className="mail-row-actions">
+        {onEdit && (
+          <IconButton title={t("report.chooseDays")} onClick={onEdit}><FaPencilAlt /></IconButton>
+        )}
+        <Button variant="ghost" onClick={onSend} disabled={sendDisabled}>{sendLabel}</Button>
+      </div>
     </div>
   );
 }

@@ -76,8 +76,10 @@ timestamp, actor, action, target, ip, result[, detail]
 | `mfa.enable` | 2FA turned on for the admin. |
 | `mfa.disable` | 2FA turned off for the admin. |
 | `profile.monthly_report` | The signed-in admin turned their monthly payment-history email on or off. |
-| `profile.payment_reminders` | The signed-in admin turned their daily payment-reminder email on or off. |
-| `profile.rotation_reminders` | The signed-in admin turned their daily password-rotation reminder email on or off. |
+| `profile.payment_reminders` | The signed-in admin turned their payment-reminder emails on or off. |
+| `profile.payment_reminder_days` | The signed-in admin changed which days their payment reminder is sent on. |
+| `profile.rotation_reminder_days` | The signed-in admin changed which days their password-rotation reminder is sent on. |
+| `profile.rotation_reminders` | The signed-in admin turned their password-rotation reminder emails on or off. |
 | `profile.breach_alerts` | The signed-in admin turned their breach-alert email on or off. |
 | `profile.upcoming_payments` | The signed-in admin turned their monthly upcoming-payments email on or off. |
 
@@ -127,8 +129,8 @@ the server's terminal). They cover the scheduled jobs and startup.
 | `backup.create` (actor `system`) | A **scheduled** backup ran (`ok` with the file name, or `fail`). |
 | `upcoming.send` (actor `system`) | The **monthly upcoming-payments** email was sent. The target is the recipient, the detail is `YYYY-MM / N payments` (`ok`) or the month plus the error (`fail`). A month with no payments sends nothing and is not logged. |
 | `breach.alert` (actor `system`) | A **breach alert** was emailed right after a scan found newly breached passwords (not scheduled). The target is the recipient, the detail is `N new` (`ok`, with `(retried)` when it only went through on a later attempt) or the error plus `(will retry)` (`fail`). A failed alert is kept and retried about every 30 minutes; only the first failure is logged. |
-| `rotation.send` (actor `system`) | A **scheduled daily password-rotation reminder** was emailed. The target is the recipient, the detail is `YYYY-MM-DD / N due` (`ok`) or the date plus the error (`fail`). Retried every 30 minutes until it goes through; only the first failure is logged. |
-| `reminder.send` (actor `system`) | A **scheduled daily payment reminder** was emailed. The target is the recipient, the detail is `YYYY-MM-DD / N due` (`ok`) or the date plus the error (`fail`). Retried every 30 minutes until it goes through; only the first failure is logged. |
+| `rotation.send` (actor `system`) | A **scheduled password-rotation reminder** (on one of the admin's chosen days) was emailed. The target is the recipient, the detail is `YYYY-MM-DD / N due` (`ok`) or the date plus the error (`fail`). Retried every 30 minutes until it goes through; only the first failure is logged. |
+| `reminder.send` (actor `system`) | A **scheduled payment reminder** (on one of the admin's chosen days) was emailed. The target is the recipient, the detail is `YYYY-MM-DD / N due` (`ok`) or the date plus the error (`fail`). Retried every 30 minutes until it goes through; only the first failure is logged. |
 | `report.send` (actor `system`) | The **monthly payment report** was emailed. The target is the recipient, the detail is `YYYY-MM / N payments` (`ok`) or the month plus the error (`fail`). A failed send is retried every 30 minutes until it goes through; only the first failure is logged. |
 
 > **Why a scan can show `0 checked, N skipped`:** the count only rises when an

@@ -110,6 +110,7 @@ export interface AccountListItem {
   login?: string;
   billing_period_months: number;
   amount?: number;
+  currency?: string; // currency of `amount` (USD when unset)
   next_payment_date?: string;
   password_changed_at: string;
   rotate_every_days?: number;
@@ -136,6 +137,7 @@ export interface NewAccount {
   password: string;
   billing_period_months?: number;
   amount?: number | null;
+  currency?: string;
   next_payment_date?: string;
   notes?: string;
   rotate_every_days?: number;
@@ -380,6 +382,8 @@ export interface Admin {
   totp_enabled?: boolean;
   monthly_report?: boolean; // gets last month's payment history by email
   payment_reminders?: boolean; // gets daily reminders while a payment is due within 7 days or overdue
+  payment_reminder_days?: number[];  // days before the due date the payment reminder is sent (0 = due day)
+  rotation_reminder_days?: number[]; // same, for password-rotation reminders
   breach_alerts?: boolean; // emailed right away when a scan finds a newly breached password
   rotation_reminders?: boolean; // gets daily reminders while a password is due for rotation within 7 days or overdue
   upcoming_payments?: boolean; // gets the month's upcoming payments by email on the 1st
@@ -450,6 +454,12 @@ export function setUpcomingPayments(enabled: boolean) {
 // now. When none are flagged, nothing is sent and sent is false.
 export function sendBreachAlertPreview() {
   return request<{ sent_to: string; passwords: number; sent: boolean }>("/breach-alert/preview", { method: "POST" });
+}
+export function setPaymentReminderDays(days: number[]) {
+  return request<{ days: number[] }>("/profile/payment-reminder-days", { method: "PUT", body: JSON.stringify({ days }) });
+}
+export function setRotationReminderDays(days: number[]) {
+  return request<{ days: number[] }>("/profile/rotation-reminder-days", { method: "PUT", body: JSON.stringify({ days }) });
 }
 export function setBreachAlerts(enabled: boolean) {
   return request<{ enabled: boolean }>("/profile/breach-alerts", { method: "PUT", body: JSON.stringify({ enabled }) });

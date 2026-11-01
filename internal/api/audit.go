@@ -91,6 +91,8 @@ var auditRoutes = []auditRoute{
 	{"PUT", regexp.MustCompile(`^/profile/payment-reminders$`), "profile.payment_reminders"},
 	{"PUT", regexp.MustCompile(`^/profile/rotation-reminders$`), "profile.rotation_reminders"},
 	{"PUT", regexp.MustCompile(`^/profile/breach-alerts$`), "profile.breach_alerts"},
+	{"PUT", regexp.MustCompile(`^/profile/payment-reminder-days$`), "profile.payment_reminder_days"},
+	{"PUT", regexp.MustCompile(`^/profile/rotation-reminder-days$`), "profile.rotation_reminder_days"},
 	{"PUT", regexp.MustCompile(`^/profile/upcoming-payments$`), "profile.upcoming_payments"},
 	{"POST", regexp.MustCompile(`^/reminder/preview$`), "reminder.preview"},
 	{"POST", regexp.MustCompile(`^/rotation/preview$`), "rotation.preview"},

@@ -88,7 +88,7 @@ func (s *Server) exportAccounts(w http.ResponseWriter, r *http.Request) {
 	wrapStyle, _ := f.NewStyle(&excelize.Style{Alignment: &excelize.Alignment{WrapText: true, Vertical: "top"}})
 
 	// One "Amount (CODE)" column per active currency + a "Paid in" column, matching
-	// the Finance exports. Account amounts are stored in USD base, so Paid in is USD.
+	// the Finance exports. "Paid in" is the account's own currency.
 	header := []interface{}{"Service", "Website", "Login", "Password", "Password history (Oldest to latest)", "Billing"}
 	for _, c := range activeCcys {
 		header = append(header, "Amount ("+c.Code+")")
@@ -166,12 +166,12 @@ func (s *Server) exportAccounts(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, c := range activeCcys {
 			if a.Amount != nil {
-				row = append(row, amountIn(*a.Amount, "USD", c))
+				row = append(row, amountIn(*a.Amount, currencyOrUSDExport(a.Currency), c))
 			} else {
 				row = append(row, "")
 			}
 		}
-		row = append(row, "USD", nextPay, rotate, a.Status, len(a.Seats), strings.Join(users, ", "), notes)
+		row = append(row, currencyOrUSDExport(a.Currency), nextPay, rotate, a.Status, len(a.Seats), strings.Join(users, ", "), notes)
 		// Append to the next empty row on that sheet.
 		rows, _ := f.GetRows(sheet)
 		cell, _ := excelize.CoordinatesToCellName(1, len(rows)+1)
@@ -245,4 +245,12 @@ func (s *Server) exportAccounts(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+// currencyOrUSDExport is the account's currency for a spreadsheet row ("USD" if unset).
+func currencyOrUSDExport(code string) string {
+	if code == "" {
+		return "USD"
+	}
+	return code
 }

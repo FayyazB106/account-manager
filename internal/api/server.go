@@ -127,6 +127,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("PUT /profile/payment-reminders", s.requireAuth(s.setPaymentReminders))
 	mux.HandleFunc("PUT /profile/rotation-reminders", s.requireAuth(s.setRotationReminders))
 	mux.HandleFunc("PUT /profile/breach-alerts", s.requireAuth(s.setBreachAlerts))
+	mux.HandleFunc("PUT /profile/payment-reminder-days", s.requireAuth(s.setPaymentReminderDays))
+	mux.HandleFunc("PUT /profile/rotation-reminder-days", s.requireAuth(s.setRotationReminderDays))
 	mux.HandleFunc("PUT /profile/upcoming-payments", s.requireAuth(s.setUpcomingPayments))
 
 	mux.HandleFunc("GET /smtp", s.requireAuth(s.getSMTP))

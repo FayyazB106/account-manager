@@ -61,8 +61,8 @@ The rows below describe **what is true today**.
   A third exists **only if an admin configures email reports** (next bullet).
 - **Email reports and reminders move account data out of the vault.** When SMTP is
   configured and an admin opts in, the server emails them: last month's payment
-  spreadsheet and the month's upcoming payments (both on the 1st), and, daily, reminders
-  listing the payments due within 7 days or overdue and the passwords due for rotation, plus
+  spreadsheet and the month's upcoming payments (both on the 1st), and, on the days each admin picks,
+  countdown reminders listing the payments due and the passwords due for rotation, plus
   an immediate alert when a breach scan finds a newly breached password (service, login and breach count — never the password).
   Together these contain **payment dates, amounts, service names, account logins
   (usernames/emails), seat users, notes and invoice file names — never passwords, 2FA

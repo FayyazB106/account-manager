@@ -46,7 +46,7 @@ func TestFreshDatabaseIsLatest(t *testing.T) {
 	if v := userVersion(t, d); v != schemaVersion {
 		t.Fatalf("user_version = %d, want %d", v, schemaVersion)
 	}
-	for _, c := range []string{"monthly_report", "monthly_report_last", "payment_reminders", "payment_reminder_last", "rotation_reminders", "rotation_reminder_last", "upcoming_payments", "upcoming_payments_last", "language", "breach_alerts"} {
+	for _, c := range []string{"monthly_report", "monthly_report_last", "payment_reminders", "payment_reminder_last", "rotation_reminders", "rotation_reminder_last", "upcoming_payments", "upcoming_payments_last", "language", "breach_alerts", "payment_reminder_days", "rotation_reminder_days"} {
 		if !columnExists(t, d, "admin", c) {
 			t.Errorf("fresh schema is missing admin.%s", c)
 		}
@@ -76,6 +76,9 @@ func TestUpgradeFromV8AddsReportColumns(t *testing.T) {
 		`ALTER TABLE admin DROP COLUMN upcoming_payments_last`,
 		`ALTER TABLE admin DROP COLUMN language`,
 		`ALTER TABLE admin DROP COLUMN breach_alerts`,
+		`ALTER TABLE admin DROP COLUMN payment_reminder_days`,
+		`ALTER TABLE admin DROP COLUMN rotation_reminder_days`,
+		`ALTER TABLE account DROP COLUMN currency`,
 		`PRAGMA user_version = 8`,
 	} {
 		if _, err := d.Exec(stmt); err != nil {
@@ -123,6 +126,9 @@ func TestUpgradeFromV9AddsReminderColumns(t *testing.T) {
 		`ALTER TABLE admin DROP COLUMN upcoming_payments_last`,
 		`ALTER TABLE admin DROP COLUMN language`,
 		`ALTER TABLE admin DROP COLUMN breach_alerts`,
+		`ALTER TABLE admin DROP COLUMN payment_reminder_days`,
+		`ALTER TABLE admin DROP COLUMN rotation_reminder_days`,
+		`ALTER TABLE account DROP COLUMN currency`,
 		`PRAGMA user_version = 9`,
 	} {
 		if _, err := d.Exec(stmt); err != nil {
@@ -172,6 +178,9 @@ func TestUpgradeFromV10AddsRotationColumns(t *testing.T) {
 		`ALTER TABLE admin DROP COLUMN upcoming_payments_last`,
 		`ALTER TABLE admin DROP COLUMN language`,
 		`ALTER TABLE admin DROP COLUMN breach_alerts`,
+		`ALTER TABLE admin DROP COLUMN payment_reminder_days`,
+		`ALTER TABLE admin DROP COLUMN rotation_reminder_days`,
+		`ALTER TABLE account DROP COLUMN currency`,
 		`PRAGMA user_version = 10`,
 	} {
 		if _, err := d.Exec(stmt); err != nil {
@@ -219,6 +228,9 @@ func TestUpgradeFromV11AddsUpcomingColumns(t *testing.T) {
 		`ALTER TABLE admin DROP COLUMN upcoming_payments_last`,
 		`ALTER TABLE admin DROP COLUMN language`,
 		`ALTER TABLE admin DROP COLUMN breach_alerts`,
+		`ALTER TABLE admin DROP COLUMN payment_reminder_days`,
+		`ALTER TABLE admin DROP COLUMN rotation_reminder_days`,
+		`ALTER TABLE account DROP COLUMN currency`,
 		`PRAGMA user_version = 11`,
 	} {
 		if _, err := d.Exec(stmt); err != nil {
@@ -261,7 +273,7 @@ func TestUpgradeFromV12AddsLanguageColumn(t *testing.T) {
 		VALUES ('a@example.com','A','h',x'01',x'02',1,'2026-11')`); err != nil {
 		t.Fatal(err)
 	}
-	for _, stmt := range []string{`ALTER TABLE admin DROP COLUMN language`, `ALTER TABLE admin DROP COLUMN breach_alerts`, `PRAGMA user_version = 12`} {
+	for _, stmt := range []string{`ALTER TABLE admin DROP COLUMN language`, `ALTER TABLE admin DROP COLUMN breach_alerts`, `ALTER TABLE admin DROP COLUMN payment_reminder_days`, `ALTER TABLE admin DROP COLUMN rotation_reminder_days`, `ALTER TABLE account DROP COLUMN currency`, `PRAGMA user_version = 12`} {
 		if _, err := d.Exec(stmt); err != nil {
 			t.Fatalf("%s: %v", stmt, err)
 		}
@@ -300,7 +312,7 @@ func TestUpgradeFromV13AddsBreachAlertsColumn(t *testing.T) {
 	if _, err := d.Exec(`INSERT INTO admin (email, name, auth_hash, kek_salt, wrapped_vault_key) VALUES ('a@example.com','A','h',x'00',x'00')`); err != nil {
 		t.Fatal(err)
 	}
-	for _, stmt := range []string{`ALTER TABLE admin DROP COLUMN breach_alerts`, `PRAGMA user_version = 13`} {
+	for _, stmt := range []string{`ALTER TABLE admin DROP COLUMN breach_alerts`, `ALTER TABLE admin DROP COLUMN payment_reminder_days`, `ALTER TABLE admin DROP COLUMN rotation_reminder_days`, `ALTER TABLE account DROP COLUMN currency`, `PRAGMA user_version = 13`} {
 		if _, err := d.Exec(stmt); err != nil {
 			t.Fatal(err)
 		}
@@ -318,5 +330,69 @@ func TestUpgradeFromV13AddsBreachAlertsColumn(t *testing.T) {
 	}
 	if on != 0 {
 		t.Errorf("breach_alerts should default to off, got %d", on)
+	}
+}
+
+// An install already on v15 (breach alerts present, no reminder-day choices yet)
+// upgrades in place; every existing admin gets every day before the due date.
+func TestUpgradeFromV15AddsReminderDaysColumns(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v15.db")
+	d, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Exec(`INSERT INTO admin (email, name, auth_hash, kek_salt, wrapped_vault_key) VALUES ('a@example.com','A','h',x'00',x'00')`); err != nil {
+		t.Fatal(err)
+	}
+	for _, stmt := range []string{`ALTER TABLE admin DROP COLUMN payment_reminder_days`, `ALTER TABLE admin DROP COLUMN rotation_reminder_days`, `ALTER TABLE account DROP COLUMN currency`, `PRAGMA user_version = 15`} {
+		if _, err := d.Exec(stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d.Close()
+
+	d, err = Open(path)
+	if err != nil {
+		t.Fatalf("upgrade from v15 failed: %v", err)
+	}
+	defer d.Close()
+	var pay, rot int
+	if err := d.QueryRow(`SELECT payment_reminder_days, rotation_reminder_days FROM admin`).Scan(&pay, &rot); err != nil {
+		t.Fatal(err)
+	}
+	if pay != 255 || rot != 255 {
+		t.Errorf("reminder days should default to all (255), got %d and %d", pay, rot)
+	}
+}
+
+// An install already on v16 upgrades in place; every existing account is in USD, which
+// is what its amount always was.
+func TestUpgradeFromV16AddsAccountCurrency(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v16.db")
+	d, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Exec(`INSERT INTO account (service, amount, password_wrapped_dek, password_ciphertext) VALUES ('Zoom', 12.5, x'01', x'01')`); err != nil {
+		t.Fatal(err)
+	}
+	for _, stmt := range []string{`ALTER TABLE account DROP COLUMN currency`, `PRAGMA user_version = 16`} {
+		if _, err := d.Exec(stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d.Close()
+
+	d, err = Open(path)
+	if err != nil {
+		t.Fatalf("upgrade from v16 failed: %v", err)
+	}
+	defer d.Close()
+	var cur string
+	if err := d.QueryRow(`SELECT currency FROM account WHERE service = 'Zoom'`).Scan(&cur); err != nil {
+		t.Fatal(err)
+	}
+	if cur != "USD" {
+		t.Errorf("existing accounts should be USD, got %q", cur)
 	}
 }

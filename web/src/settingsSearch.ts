@@ -34,6 +34,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: "email-reminders", to: A, anchor: "s-send-emails", label: "report.reminderName", page: "settingsNav.admin" },
   { id: "email-rotation", to: A, anchor: "s-send-emails", label: "report.rotationName", page: "settingsNav.admin" },
   { id: "email-breach", to: A, anchor: "s-send-emails", label: "report.breachName", page: "settingsNav.admin" },
+  { id: "celebration", to: A, anchor: "s-celebration", label: "celebrate.title", page: "settingsNav.admin" },
   { id: "appearance", to: A, anchor: "s-appearance", label: "config.appearance", page: "settingsNav.admin" },
   { id: "organization", to: A, anchor: "s-organization", label: "admin.organization", page: "settingsNav.admin" },
   { id: "admins", to: A, anchor: "s-admins", label: "admin.admins", page: "settingsNav.admin" },

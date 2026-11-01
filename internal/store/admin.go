@@ -129,6 +129,10 @@ type AdminInfo struct {
 	RotationReminders bool `json:"rotation_reminders"`
 	// UpcomingPayments is whether this admin gets the monthly upcoming-payments email.
 	UpcomingPayments bool `json:"upcoming_payments"`
+	// PaymentReminderDays / RotationReminderDays are the days each reminder is sent:
+	// 7..0 = days before the due date. Only set by GET /profile.
+	PaymentReminderDays  []int `json:"payment_reminder_days,omitempty"`
+	RotationReminderDays []int `json:"rotation_reminder_days,omitempty"`
 	// BreachAlerts is whether this admin is emailed when a scan finds a new breach.
 	BreachAlerts bool `json:"breach_alerts"`
 	// Language is the admin's UI language, which their emails follow.
@@ -216,7 +220,7 @@ func (s *AdminStore) SetPaymentReminders(ctx context.Context, id string, on bool
 // on `day` ("YYYY-MM-DD") — i.e. at most one reminder per admin per day.
 func (s *AdminStore) ListReminderDue(ctx context.Context, day string) ([]ReportRecipient, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, email, name, COALESCE(name_ar, ''), language FROM admin WHERE payment_reminders = 1 AND payment_reminder_last < $1 ORDER BY created_at`,
+		`SELECT id, email, name, COALESCE(name_ar, ''), language, payment_reminder_days FROM admin WHERE payment_reminders = 1 AND payment_reminder_last < $1 ORDER BY created_at`,
 		day)
 	if err != nil {
 		return nil, err
@@ -225,7 +229,7 @@ func (s *AdminStore) ListReminderDue(ctx context.Context, day string) ([]ReportR
 	var out []ReportRecipient
 	for rows.Next() {
 		var r ReportRecipient
-		if err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.NameAr, &r.Language); err != nil {
+		if err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.NameAr, &r.Language, &r.Days); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -263,7 +267,7 @@ func (s *AdminStore) SetRotationReminders(ctx context.Context, id string, on boo
 // reminder on `day` ("YYYY-MM-DD") — at most one per admin per day.
 func (s *AdminStore) ListRotationDue(ctx context.Context, day string) ([]ReportRecipient, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, email, name, COALESCE(name_ar, ''), language FROM admin WHERE rotation_reminders = 1 AND rotation_reminder_last < $1 ORDER BY created_at`,
+		`SELECT id, email, name, COALESCE(name_ar, ''), language, rotation_reminder_days FROM admin WHERE rotation_reminders = 1 AND rotation_reminder_last < $1 ORDER BY created_at`,
 		day)
 	if err != nil {
 		return nil, err
@@ -272,7 +276,7 @@ func (s *AdminStore) ListRotationDue(ctx context.Context, day string) ([]ReportR
 	var out []ReportRecipient
 	for rows.Next() {
 		var r ReportRecipient
-		if err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.NameAr, &r.Language); err != nil {
+		if err := rows.Scan(&r.ID, &r.Email, &r.Name, &r.NameAr, &r.Language, &r.Days); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -342,6 +346,9 @@ type ReportRecipient struct {
 	Name     string
 	NameAr   string // empty when the admin has no Arabic name
 	Language string // "en" or "ar"
+	// Days is the admin's chosen reminder days (see DaysToMask); only filled in by the
+	// payment and rotation reminder lists.
+	Days int
 }
 
 // ListReportDue returns opted-in admins whose last-sent month is earlier than
@@ -611,4 +618,86 @@ func (s *AdminStore) ListBreachAlertRecipients(ctx context.Context) ([]ReportRec
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// Reminder days are stored as a bit mask: bit n (0..7) = "n days before the due date".
+// 255 (all eight bits) is the default. Overdue items are not reminded about; the one
+// exception is "Send Now", which uses PreviewDays to list everything flagged.
+const (
+	MaxReminderDay  = 7
+	AllReminderDays = 0xFF
+	overdueBit      = 1 << 8
+	// PreviewDays is the mask "Send Now" uses: every day in the window plus overdue.
+	PreviewDays = AllReminderDays | overdueBit
+	// OverdueBit is cleared from stored masks when sending scheduled reminders.
+	OverdueBit = overdueBit
+)
+
+// DaysToMask turns a list of days (0..7 days before the due date) into the stored mask.
+// Duplicates are fine; anything out of range, or an empty list, is an error.
+func DaysToMask(days []int) (int, error) {
+	mask := 0
+	for _, d := range days {
+		if d < 0 || d > MaxReminderDay {
+			return 0, errors.New("invalid reminder day")
+		}
+		mask |= 1 << d
+	}
+	if mask == 0 {
+		return 0, errors.New("pick at least one reminder day")
+	}
+	return mask, nil
+}
+
+// MaskToDays is the reverse: 7, 6, ... 0 (days before the due date).
+func MaskToDays(mask int) []int {
+	out := []int{}
+	for d := MaxReminderDay; d >= 0; d-- {
+		if mask&(1<<d) != 0 {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// DayWanted reports whether a reminder should be sent for an item that is `days` days
+// from its due date (negative = overdue) given the admin's mask.
+func DayWanted(mask, days int) bool {
+	if days < 0 {
+		return mask&overdueBit != 0
+	}
+	if days > MaxReminderDay {
+		return false
+	}
+	return mask&(1<<days) != 0
+}
+
+// ReminderDays returns an admin's chosen payment and rotation reminder masks.
+func (s *AdminStore) ReminderDays(ctx context.Context, id string) (payment, rotation int, err error) {
+	err = s.db.QueryRowContext(ctx,
+		`SELECT payment_reminder_days, rotation_reminder_days FROM admin WHERE id = $1`, id).Scan(&payment, &rotation)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = ErrNotFound
+	}
+	return
+}
+
+// SetPaymentReminderDays / SetRotationReminderDays store an admin's chosen days.
+func (s *AdminStore) SetPaymentReminderDays(ctx context.Context, id string, mask int) error {
+	return s.setDays(ctx, "payment_reminder_days", id, mask)
+}
+func (s *AdminStore) SetRotationReminderDays(ctx context.Context, id string, mask int) error {
+	return s.setDays(ctx, "rotation_reminder_days", id, mask)
+}
+
+func (s *AdminStore) setDays(ctx context.Context, column, id string, mask int) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE admin SET `+column+` = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, id, mask)
+	if err != nil {
+		return err
+	}
+	if affected(res) == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

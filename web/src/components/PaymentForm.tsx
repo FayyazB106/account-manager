@@ -16,6 +16,7 @@ import { Modal } from "./Modal";
 import { Field } from "./Field";
 import { Button } from "./Button";
 import { CircleButton } from "./CircleButton";
+import { celebratePayment, preloadCelebration } from "../celebrate";
 
 // PaymentForm is the add/edit modal for a single ledger payment. On save it calls
 // onSaved(); the parent reloads the list.
@@ -55,6 +56,9 @@ export function PaymentForm({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Warm up the cha-ching so it plays instantly when the payment is saved.
+  useEffect(() => { if (markPaid) preloadCelebration(); }, [markPaid]);
 
   useEffect(() => {
     listAttachments(accountId).then(setAttachments).catch(() => {});
@@ -96,7 +100,10 @@ export function PaymentForm({
       } else {
         await addPayment(accountId, payload);
         // "Mark as paid": also roll the subscription's next-payment date forward.
-        if (markPaid) await extendAccount(accountId);
+        if (markPaid) {
+          await extendAccount(accountId);
+          celebratePayment(); // cha-ching + green $ confetti
+        }
       }
       onSaved();
     } catch (err) {

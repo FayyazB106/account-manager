@@ -11,16 +11,17 @@ import (
 )
 
 type createAccountInput struct {
-	CategoryID       *string `json:"category_id"`
-	Service             string `json:"service"`
-	Website             string `json:"website"`
-	Login               string `json:"login"`
-	Password            string `json:"password"`
-	BillingPeriodMonths *int     `json:"billing_period_months"` // 0 = free
-	Amount              *float64 `json:"amount"`                // optional billing amount ($)
-	NextPaymentDate     string   `json:"next_payment_date"`     // "YYYY-MM-DD", optional
-	Notes               string   `json:"notes"`
-	RotateEveryDays     *int     `json:"rotate_every_days"` // optional rotation policy
+	CategoryID          *string   `json:"category_id"`
+	Service             string    `json:"service"`
+	Website             string    `json:"website"`
+	Login               string    `json:"login"`
+	Password            string    `json:"password"`
+	BillingPeriodMonths *int      `json:"billing_period_months"` // 0 = free
+	Amount              *float64  `json:"amount"`                // optional billing amount, in Currency
+	Currency            string    `json:"currency"`              // 3-letter code of the amount ("" = USD)
+	NextPaymentDate     string    `json:"next_payment_date"`     // "YYYY-MM-DD", optional
+	Notes               string    `json:"notes"`
+	RotateEveryDays     *int      `json:"rotate_every_days"` // optional rotation policy
 	Seats               []string  `json:"seats"`             // one entry per seat; name may be empty
 	SeatsAr             []*string `json:"seats_ar"`          // optional Arabic seat names, aligned by position
 }
@@ -69,12 +70,18 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "rotate_every_days must be positive")
 		return
 	}
+	currency, cok := normalizeCurrency(in.Currency)
+	if !cok {
+		writeError(w, http.StatusBadRequest, "currency must be a 3-letter code")
+		return
+	}
 
 	acc := &store.Account{
 		CategoryID:          in.CategoryID,
 		Service:             in.Service,
 		BillingPeriodMonths: months,
 		Amount:              in.Amount,
+		Currency:            currency,
 		RotateEveryDays:     in.RotateEveryDays,
 		PasswordWrappedDEK:  env.WrappedDEK,
 		PasswordCiphertext:  env.Ciphertext,
@@ -242,6 +249,11 @@ func (s *Server) updateAccount(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "rotate_every_days must be positive")
 		return
 	}
+	currency, cok := normalizeCurrency(in.Currency)
+	if !cok {
+		writeError(w, http.StatusBadRequest, "currency must be a 3-letter code")
+		return
+	}
 
 	acc := &store.Account{
 		ID:                  id,
@@ -249,6 +261,7 @@ func (s *Server) updateAccount(w http.ResponseWriter, r *http.Request) {
 		Service:             in.Service,
 		BillingPeriodMonths: months,
 		Amount:              in.Amount,
+		Currency:            currency,
 		RotateEveryDays:     in.RotateEveryDays,
 	}
 	if in.Website = strings.TrimSpace(in.Website); in.Website != "" {
@@ -379,4 +392,22 @@ func (s *Server) listAccounts(w http.ResponseWriter, r *http.Request) {
 		items = []store.AccountListItem{} // return [] not null
 	}
 	writeJSON(w, http.StatusOK, items)
+}
+
+// normalizeCurrency upper-cases a currency code and defaults an empty one to USD; ok is
+// false unless the result is exactly three letters.
+func normalizeCurrency(code string) (string, bool) {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if code == "" {
+		return "USD", true
+	}
+	if len(code) != 3 {
+		return "", false
+	}
+	for _, r := range code {
+		if r < 'A' || r > 'Z' {
+			return "", false
+		}
+	}
+	return code, true
 }

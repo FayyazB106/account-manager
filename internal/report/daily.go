@@ -31,8 +31,10 @@ type dailyKind struct {
 	listDue   func(ctx context.Context, marker string) ([]store.ReportRecipient, error)
 	markSent  func(ctx context.Context, id, marker string) error
 	// build returns how many items currently need attention and a renderer that
-	// turns them into one admin's email.
-	build func(ctx context.Context) (count int, render func(to Recipient) mailer.Message, err error)
+	// turns them into one admin's email. render gets the admin's chosen reminder-day
+	// mask and returns how many items it included; 0 means nothing for this admin today
+	// (no email). Emails that have no day choice ignore the mask.
+	build func(ctx context.Context) (count int, render func(to Recipient, mask int) (mailer.Message, int), err error)
 }
 
 func dayMarker(now time.Time) string   { return now.Format("2006-01-02") }
@@ -47,9 +49,20 @@ func (s *Service) paymentKind() dailyKind {
 		marker:   dayMarker,
 		listDue:  s.Admins.ListReminderDue,
 		markSent: s.Admins.MarkReminderSent,
-		build: func(ctx context.Context) (int, func(Recipient) mailer.Message, error) {
+		build: func(ctx context.Context) (int, func(Recipient, int) (mailer.Message, int), error) {
 			items, err := s.DueNow(ctx)
-			return len(items), func(to Recipient) mailer.Message { return reminderMessage(to, items) }, err
+			return len(items), func(to Recipient, mask int) (mailer.Message, int) {
+				var sel []DueItem
+				for _, it := range items {
+					if store.DayWanted(mask, it.Days) {
+						sel = append(sel, it)
+					}
+				}
+				if len(sel) == 0 {
+					return mailer.Message{}, 0
+				}
+				return reminderMessage(to, sel), len(sel)
+			}, err
 		},
 	}
 }
@@ -63,9 +76,20 @@ func (s *Service) rotationKind() dailyKind {
 		marker:   dayMarker,
 		listDue:  s.Admins.ListRotationDue,
 		markSent: s.Admins.MarkRotationSent,
-		build: func(ctx context.Context) (int, func(Recipient) mailer.Message, error) {
+		build: func(ctx context.Context) (int, func(Recipient, int) (mailer.Message, int), error) {
 			items, err := s.RotationNow(ctx)
-			return len(items), func(to Recipient) mailer.Message { return rotationMessage(to, items) }, err
+			return len(items), func(to Recipient, mask int) (mailer.Message, int) {
+				var sel []RotationItem
+				for _, it := range items {
+					if store.DayWanted(mask, it.Days) {
+						sel = append(sel, it)
+					}
+				}
+				if len(sel) == 0 {
+					return mailer.Message{}, 0
+				}
+				return rotationMessage(to, sel), len(sel)
+			}, err
 		},
 	}
 }
@@ -80,10 +104,10 @@ func (s *Service) upcomingKind() dailyKind {
 		markEmpty: true,
 		listDue:   s.Admins.ListUpcomingDue,
 		markSent:  s.Admins.MarkUpcomingSent,
-		build: func(ctx context.Context) (int, func(Recipient) mailer.Message, error) {
+		build: func(ctx context.Context) (int, func(Recipient, int) (mailer.Message, int), error) {
 			month, items, conv, err := s.UpcomingNow(ctx)
-			return len(items), func(to Recipient) mailer.Message {
-				return upcomingMessage(to, month, items, conv)
+			return len(items), func(to Recipient, _ int) (mailer.Message, int) {
+				return upcomingMessage(to, month, items, conv), len(items)
 			}, err
 		},
 	}
@@ -109,7 +133,11 @@ func (s *Service) previewDaily(ctx context.Context, k dailyKind, to Recipient) (
 	if err != nil || count == 0 {
 		return 0, err
 	}
-	return count, s.SendFn(ctx, cfg, render(to))
+	msg, n := render(to, store.PreviewDays) // Send Now shows everything flagged, whatever days are chosen
+	if n == 0 {
+		return 0, nil
+	}
+	return n, s.SendFn(ctx, cfg, msg)
 }
 
 // runDaily sends the scheduled email to every opted-in admin who has not had one
@@ -164,7 +192,11 @@ func (s *Service) runDaily(ctx context.Context, k dailyKind) {
 			s.audit(k.audit, r.Email, marker+": invalid address", "fail")
 			continue
 		}
-		if err := s.SendFn(ctx, cfg, render(s.recipientFor(ctx, r))); err != nil {
+		msg, n := render(s.recipientFor(ctx, r), r.Days&^store.OverdueBit) // overdue items are never reminded about
+		if n == 0 {
+			continue // none of today's items falls on a day this admin chose
+		}
+		if err := s.SendFn(ctx, cfg, msg); err != nil {
 			log.Printf("%s to %s failed: %v", k.logName, r.Email, err)
 			if !tried { // only the first failure is audited; retries just log
 				s.audit(k.audit, r.Email, marker+": "+truncate(err.Error(), 200)+" (will retry)", "fail")
@@ -177,7 +209,7 @@ func (s *Service) runDaily(ctx context.Context, k dailyKind) {
 		if err := k.markSent(ctx, r.ID, marker); err != nil {
 			log.Printf("%s: mark sent for %s: %v", k.logName, r.Email, err)
 		}
-		s.audit(k.audit, r.Email, fmt.Sprintf("%s / %d %s", marker, count, k.unit), "ok")
+		s.audit(k.audit, r.Email, fmt.Sprintf("%s / %d %s", marker, n, k.unit), "ok")
 	}
 }
 

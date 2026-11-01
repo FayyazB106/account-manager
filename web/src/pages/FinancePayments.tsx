@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { useLayout } from "../components/Layout";
 import { localCategoryName } from "../categoryName";
+import { Pagination, usePagination } from "../components/Pagination";
 import { billingLabel } from "../account-ui";
 import { fmtMoney, toUSD } from "../money";
 import { downloadSheet } from "./FinanceAccounts";
@@ -102,6 +103,10 @@ export function FinancePayments() {
   }, [payments, catFilter, billingFilter, userFilter, from, to, sortKey, sortDir, currencies]);
 
   const total = rows.reduce((sum, p) => sum + inDisplay(p), 0);
+  const pager = usePagination(
+    rows,
+    [catFilter, billingFilter, userFilter, from, to, sortKey, sortDir, ccy].join("|"),
+  );
 
   // Build the array-of-arrays the Excel sheet is made from (shared by the plain
   // export and the with-invoices zip, so both show exactly what's filtered).
@@ -246,7 +251,7 @@ export function FinancePayments() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((p) => (
+            {pager.items.map((p) => (
               <tr key={p.id} className="clickable-row" onClick={() => navigate(`/account/${p.account_id}`)}>
                 <td className="nowrap"><span dir="ltr">{p.paid_on.slice(0, 10)}</span></td>
                 <td>
@@ -284,6 +289,7 @@ export function FinancePayments() {
           </tfoot>
         </table>
       </div>
+      <Pagination p={pager} />
     </div>
   );
 }

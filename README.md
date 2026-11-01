@@ -54,6 +54,9 @@ there's nothing to install or migrate.
 - **Audit log** — who revealed / changed / exported / restored what, with client IP (**Settings → Logs**). Action codes are explained in [`AUDIT_LOG.md`](AUDIT_LOG.md).
 - **Password history** — previous passwords per account, kept and revealable on the account's **Password History** tab.
 - **Payment history** — a ledger of actual payments per account. **Mark as paid** opens a prefilled form (today's date + the account's amount) you confirm or adjust, which records the payment and rolls the next-payment date forward; you can also add/edit/delete entries manually with amount, currency, note, and an optional linked invoice. See the account's **Payments** tab, or **Finance → Payments** for a filterable, exportable view across all accounts (export optionally bundles the invoice files as a `.zip`).
+- **Per-account currency** — each account's amount has its own currency (pick it next to the amount, like on a payment; USD by default, and existing accounts stay USD). Totals, Monthly Costs, the graph, exports and the upcoming-payment/reminder emails all convert through your saved exchange rates, and each amount is shown in its own currency first.
+- **Duplicate an account** — right-click a row (or long-press it on a phone) in the accounts list → **Duplicate** opens the new-account form filled from that account (including its password, fetched like a normal reveal, so it appears in the audit log). Only the fields are copied — not payment history, password history, attachments or the 2FA secret. Nothing is created until you save.
+- **Paged lists** — accounts, authenticator codes, users, payment history and password history are split into pages (10/25/50/100 per page, remembered in your browser). Exports always include every filtered row, not just the current page.
 - **Account 2FA codes** — store a service's 2FA secret (paste the key/`otpauth://` URI **or scan the QR with your camera**) and generate its codes in-app (the "One-time password" card on the account's **General** tab).
 - **Breach monitoring** — scheduled Have I Been Pwned check of stored passwords (**Settings → Configuration**), flagging breached ones. Uses k-anonymity — only a short hash prefix is sent.
 - **Clipboard auto-clear** after copying a secret (configurable; **Settings → Configuration**). Note: this wipes the *active* clipboard, but a browser cannot clear **Windows Clipboard History (Win+V)** or cloud clipboard sync — disable/clear those at the OS level if that matters.
@@ -90,8 +93,8 @@ install needs no configuration. Key points:
 ### Email reports (SMTP)
 
 The app ships no email service or credentials — you bring your own SMTP account, and a
-free plan is plenty (two emails per admin per month, plus daily reminders only while
-something is due). Set it up in **Settings → Email**. Email starts **off**: use the switch at
+free plan is plenty (two emails per admin per month, plus reminders only on the
+days you pick before something is due). Set it up in **Settings → Email**. Email starts **off**: use the switch at
 the top right of that page to turn it on. Turning it off again keeps your saved settings but
 stops all sending, and the **Send Emails** card under *Settings → Admin* is greyed out until it is back on.
 
@@ -120,15 +123,17 @@ How it behaves:
   amount pays on its next-payment date and every billing period after it (clamped to short months).
   Each line shows the date, service, login and amount. Nothing is sent if the month has no payments.
   A missed 1st is caught up the next time the app runs; opting in mid-month starts next month.
-- **Payment reminders** — once a day (after 08:00) while any active recurring payment is due
-  within **7 days or overdue** (the same set the app highlights as needing attention). It lists
-  each one with its due date and amount, most urgent first, and stops once you update the account
-  with the latest payment (**Mark as paid**) or deactivate it. Nothing is sent on days when nothing
-  is due. Opting in doesn't send one the same day; the first reminder is tomorrow's.
-- **Password rotation reminders** — the same daily email for passwords: any active account with a
-  *rotate every N days* policy whose password was last changed more than N days ago (or will be
-  within **7 days**). It lists each account with its login and how overdue it is, and stops once
-  you change the password in Account Manager (or deactivate the account).
+- **Payment reminders** — a countdown email, once a day (after 08:00), on the days you choose before
+  an active recurring payment is due: any of 7, 6, 5, 4, 3, 2 or 1 day before and the due day itself.
+  Click the pencil next to **Send Now** to pick the days (all are ticked by default). Each email lists
+  the payments that fall on a ticked day today, with their due date and amount. Overdue payments are
+  not reminded about. Nothing is sent on days when nothing matches. Opting in doesn't send one the
+  same day. **Send Now** ignores your choice and lists everything due within 7 days or overdue (the
+  same set the app highlights as needing attention).
+- **Password rotation reminders** — the same countdown for passwords: an active account with a
+  *rotate every N days* policy is reminded on the days you choose before its rotation date (the day it
+  was last changed plus N), with its own pencil. The email lists each account with its login. Overdue
+  rotations are not reminded about; **Send Now** lists everything due within 7 days or overdue.
 - **Breach alerts** — *not scheduled*: an email sent right after a breach scan (the scheduled one
   from **Settings → Configuration → Breach monitoring**, or **Scan now**) finds a password in a
   *new* data breach. "New" means a password that was clean or never checked before, or whose

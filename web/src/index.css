@@ -587,6 +587,11 @@ td.nowrap { white-space: nowrap; }
 .bulk-select { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); cursor: pointer; }
 .bulk-select input { margin: 0; }
 .bulk-actions { display: inline-flex; align-items: center; gap: 12px; }
+/* Users search sits at the far end of the Select-all row. */
+/* flex-basis lets it share the line with "Select all" on a phone, and shrink to fit. */
+.bulk-bar .user-search { margin-inline-start: auto; flex: 1 1 130px; min-width: 120px; max-width: 360px; width: auto; }
+/* No iOS text-selection callout when long-pressing a row for its menu. */
+.accounts tbody tr { -webkit-touch-callout: none; }
 .bulk-actions .muted { font-size: 13px; }
 .user-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
 /* Inline edit row (name + Arabic name + Save/Cancel) must wrap and shrink on
@@ -663,8 +668,11 @@ th .sort-arrow { font-size: 10px; opacity: 0.7; margin-left: 4px; }
 /* On desktop the table is table-layout:fixed at width:100% (colgroup sums to
    100%), so it fits with no horizontal scroll. Horizontal scrolling is only
    enabled at the mobile breakpoint (where columns size to content). */
-.table-scroll { -webkit-overflow-scrolling: touch; }
-.accounts { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.table-scroll { -webkit-overflow-scrolling: touch; overflow-x: auto; min-width: 0; }
+.accounts { border-collapse: collapse; table-layout: auto; width: max-content; min-width: 100%; }
+.accounts th, .accounts td { white-space: nowrap; overflow-wrap: normal; }
+.accounts td.wrap-cell { white-space: normal; overflow-wrap: anywhere; min-width: 150px; max-width: 190px; }
+.fin-accounts col { width: auto !important; }
 .accounts th, .accounts td {
   text-align: start; padding: 10px 12px; border-bottom: 1px solid var(--border);
   font-size: 14px; overflow-wrap: anywhere; vertical-align: middle;
@@ -822,6 +830,22 @@ button.ok-btn:hover { background: var(--success-hover); border-color: var(--succ
    button opposite. Wraps under the text on narrow screens. */
 .mail-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
 .mail-row-text { flex: 1 1 260px; min-width: 0; }
+.mail-row-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* "Which days?" picker: a label over a round checkbox, one column per day. */
+/* The day options spread evenly and centred: four per row on a phone, all eight on a wide screen. */
+.day-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); justify-items: center; gap: 18px 6px; margin: 18px 0 10px; }
+.day-opt { min-width: 0; }
+@media (max-width: 640px) { .day-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* On a phone the actions drop under the text; keep the pencil after Send Now there. */
+@media (max-width: 820px) { .mail-row-actions .icon-link { order: 2; } }
+.day-opt { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 62px; font-size: 13px; color: var(--muted); text-align: center; cursor: pointer; }
+input.round-check[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  width: 24px; height: 24px; min-width: 24px; margin: 0; border-radius: 50%;
+  border: 2px solid var(--border-strong); background: transparent; cursor: pointer;
+}
+input.round-check[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 4px var(--surface); }
 .email-fields:disabled { opacity: 0.55; }
 /* In the Send Emails list the fieldset already dims everything, so don't dim the
    disabled switches/buttons a second time. */
@@ -894,6 +918,47 @@ button.ok-btn:hover { background: var(--success-hover); border-color: var(--succ
 /* min-width:0 lets the inputs shrink below their intrinsic size so the row (two
    inputs + the round add button) never overflows on narrow screens. */
 .inline-add input { flex: 1; min-width: 0; }
+/* Notes keep the line breaks they were typed with. */
+.notes-text, .pay-notes li { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Placeholders get the same line height as typed text, so Arabic placeholders
+   aren't clipped at the bottom either. */
+input::placeholder, textarea::placeholder {
+  line-height: 1.5;
+  /* Chrome clips a placeholder to a box that is too short for Arabic tails and dots;
+     let it draw outside that box instead. */
+  overflow: visible; text-overflow: clip; padding-block: 2px;
+}
+/* "Add user" heading and its fields on one line (wraps on a phone). */
+.add-user-row { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.add-user-row .inline-add { flex: 1; min-width: 260px; max-width: none; }
+
+/* Right-click menu (account rows). */
+.ctx-menu {
+  position: fixed; z-index: 1000; min-width: 170px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 8px 24px var(--shadow-color);
+}
+.ctx-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px;
+  background: transparent; border: none; border-radius: 6px; color: var(--text);
+  font-size: 14px; text-align: start; cursor: pointer;
+}
+.ctx-item:hover { background: var(--surface-2); }
+
+/* Pagination footer under paged lists. */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
+.pager-nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.pager-btn {
+  min-width: 32px; height: 32px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+.pager-btn:hover:not(:disabled):not(.active) { border-color: var(--muted); }
+.pager-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; cursor: default; }
+.pager-btn:disabled { opacity: 0.4; cursor: default; }
+.pager-gap { padding: 0 4px; color: var(--muted); }
+[dir="rtl"] .pager-arrow svg { transform: scaleX(-1); }
+.pager-size { display: inline-flex; align-items: center; gap: 8px; }
+.pager-size select { padding: 4px 8px; font-size: 13px; }
 .btn-like {
   background: var(--accent); color: var(--on-accent); border-radius: 8px; padding: 8px 14px;
   font-size: 14px; cursor: pointer; display: inline-block;

@@ -10,6 +10,7 @@ import { CircleButton } from "../components/CircleButton";
 import { Field } from "../components/Field";
 import { Modal } from "../components/Modal";
 import { FaTrash, FaPencilAlt } from "react-icons/fa";
+import { Pagination, usePagination } from "../components/Pagination";
 
 export function UsersSettings() {
   const { t } = useTranslation();
@@ -37,7 +38,8 @@ export function UsersSettings() {
   });
 
   async function refresh() {
-    try { setPeople(await listPeople()); } catch (e) { setError((e as Error).message); }
+    // A to Z by English name, ignoring case (so "khalid" sorts with the K's).
+    try { setPeople((await listPeople()).sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }))); } catch (e) { setError((e as Error).message); }
   }
   useEffect(() => { refresh(); }, []);
 
@@ -48,9 +50,16 @@ export function UsersSettings() {
       return next;
     });
   }
-  const allSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
+  const pager = usePagination(filtered, q.trim().toLowerCase());
+  // "Select all" covers the rows on the current page only, so a bulk delete never
+  // removes rows you can't see.
+  const allSelected = pager.items.length > 0 && pager.items.every((p) => selected.has(p.id));
   function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(filtered.map((p) => p.id)));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const p of pager.items) { if (allSelected) next.delete(p.id); else next.add(p.id); }
+      return next;
+    });
   }
 
   async function bulkDelete() {
@@ -130,16 +139,23 @@ export function UsersSettings() {
     <div className="card">
       <div className="topbar" style={{ marginBottom: 12, gap: 12 }}>
         <h2 className="section-title" style={{ margin: 0 }}>{t("users.title")}</h2>
-        {people.length > 0 && (
-          <input className="user-search" value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder={t("users.search")} style={{ flex: 1, maxWidth: 360 }} />
-        )}
         <label className="btn-like" title={arabicEnabled ? t("users.importHintAr") : t("users.importHint")}>
           {t("users.importExcel")}
           <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={handleImport} />
         </label>
       </div>
       {error && <p className="error">{error}</p>}
+
+      <div className="add-user-row">
+      <h2 className="section-title" style={{ margin: 0 }}>{t("users.add")}</h2>
+      <form className="inline-add" onSubmit={handleAdd}>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("users.namePlaceholder")} required />
+        {arabicEnabled && (
+          <input value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" placeholder={t("common.namePlaceholderAr")} />
+        )}
+        <CircleButton type="submit" disabled={busy} title={t("users.add")}>+</CircleButton>
+      </form>
+      </div>
 
       {people.length > 0 && (
         <div className="bulk-bar">
@@ -153,11 +169,13 @@ export function UsersSettings() {
               <Button variant="danger" onClick={bulkDelete}><FaTrash /> {t("users.deleteSelected")}</Button>
             </div>
           )}
+          <input className="user-search" value={q} onChange={(e) => setQ(e.target.value)}
+            placeholder={t("users.search")} />
         </div>
       )}
 
       <ul className="cat-list">
-        {filtered.map((p) => (
+        {pager.items.map((p) => (
           <li key={p.id} className={selected.has(p.id) ? "row-selected" : ""}>
             <span className="user-left">
               <input type="checkbox" className="row-check" checked={selected.has(p.id)} onChange={() => toggle(p.id)} />
@@ -172,15 +190,7 @@ export function UsersSettings() {
         {people.length === 0 && <li className="muted">{t("users.none")}</li>}
         {people.length > 0 && filtered.length === 0 && <li className="muted">{t("users.noMatch")}</li>}
       </ul>
-
-      <h2 className="section-title" style={{ marginTop: 20 }}>{t("users.add")}</h2>
-      <form className="inline-add" onSubmit={handleAdd}>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("users.namePlaceholder")} required />
-        {arabicEnabled && (
-          <input value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" placeholder={t("common.namePlaceholderAr")} />
-        )}
-        <CircleButton type="submit" disabled={busy} title={t("users.add")}>+</CircleButton>
-      </form>
+      <Pagination p={pager} />
 
       {editingId && (
         <Modal onClose={() => setEditingId(null)}>

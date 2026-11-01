@@ -6,6 +6,7 @@ import {
   setAccountStatus,
   deleteAccount,
   listPeople,
+  revealPassword,
   type AccountListItem,
   type NewAccount,
   type Category,
@@ -27,7 +28,7 @@ import { PasswordField } from "./components/PasswordField";
 import { Combobox } from "./components/Combobox";
 import { useLayout } from "./components/Layout";
 import { localCategoryName } from "./categoryName";
-import { amountVariants } from "./money";
+import { amountVariantsFrom } from "./money";
 import { FaChevronRight, FaTrash } from "react-icons/fa";
 
 // --- Helpers ---------------------------------------------------------------
@@ -88,7 +89,30 @@ function rotationStatus(changedAt: string, everyDays?: number): PaymentStatus {
 
 // --- Row -------------------------------------------------------------------
 
-export function AccountRow({ account, onOpen }: { account: AccountListItem; onOpen: () => void }) {
+// longPress gives a row the phone equivalent of a right-click: hold a finger on it for
+// about half a second (without moving) and the menu opens at that point. Android also
+// sends a contextmenu event for a long press, which opens the same menu.
+function longPress(onMenu: (x: number, y: number) => void) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let start = { x: 0, y: 0 };
+  const cancel = () => { if (timer) clearTimeout(timer); timer = undefined; };
+  return {
+    onTouchStart: (e: React.TouchEvent) => {
+      const t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY };
+      cancel();
+      timer = setTimeout(() => { timer = undefined; onMenu(start.x, start.y); }, 500);
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      const t = e.touches[0];
+      if (Math.abs(t.clientX - start.x) > 10 || Math.abs(t.clientY - start.y) > 10) cancel(); // scrolling
+    },
+    onTouchEnd: cancel,
+    onTouchCancel: cancel,
+  };
+}
+
+export function AccountRow({ account, onOpen, onMenu }: { account: AccountListItem; onOpen: () => void; onMenu?: (x: number, y: number) => void }) {
   const { t } = useTranslation();
   const { lang, categories: allCategories } = useLayout();
   const catName = localCategoryName(allCategories, account.category_id, account.category_name, lang);
@@ -102,7 +126,11 @@ export function AccountRow({ account, onOpen }: { account: AccountListItem; onOp
   const rotateDue = rotationDueDate(account.password_changed_at, account.rotate_every_days) ?? undefined;
 
   return (
-    <tr className={isActive ? "" : "inactive-row"}>
+    <tr
+      className={isActive ? "" : "inactive-row"}
+      onContextMenu={onMenu ? (e) => { e.preventDefault(); onMenu(e.clientX, e.clientY); } : undefined}
+      {...(onMenu ? longPress(onMenu) : {})}
+    >
       <td>
         <span className="svc">
           {account.category_name && (
@@ -221,7 +249,7 @@ export function AccountGeneral({
                 : <span className="muted">{t("accounts.breachNone")}</span>}</dd>
             </div>
           )}
-          <div><dt>{t("accounts.amount")}</dt><dd>{account.amount != null ? amountVariants(account.amount, currencies) : "—"}</dd></div>
+          <div><dt>{t("accounts.amount")}</dt><dd>{account.amount != null ? amountVariantsFrom(account.amount, account.currency || "USD", currencies) : "—"}</dd></div>
           <div>
             <dt>{t("accounts.nextPaymentShort")}</dt>
             <dd>{account.next_payment_date ? <PaymentCell date={account.next_payment_date} /> : "—"}</dd>
@@ -244,7 +272,7 @@ export function AccountGeneral({
               )}
             </dd>
           </div>
-          <div className="full"><dt>{t("accounts.notes")}</dt><dd>{account.notes ? account.notes : "—"}</dd></div>
+          <div className="full"><dt>{t("accounts.notes")}</dt><dd className="notes-text">{account.notes ? account.notes : "—"}</dd></div>
         </dl>
 
         <div className="detail-actions">
@@ -282,7 +310,7 @@ export function AccountGeneral({
           accountId={account.id}
           existing={null}
           markPaid
-          defaults={{ amount: account.amount }}
+          defaults={{ amount: account.amount, currency: account.currency }}
           onSaved={() => { setMarkingPaid(false); toast(t("accounts.markedPaid")); onChanged(); }}
           onCancel={() => setMarkingPaid(false)}
         />
@@ -345,12 +373,16 @@ export function RotationBanner({ accounts }: { accounts: AccountListItem[] }) {
 
 export function AccountForm({
   existing,
+  template = null,
   categories,
   defaultCategoryId,
   onSaved,
   onCancel,
 }: {
   existing: AccountListItem | null;
+  // When set (and not editing), the new-account form starts filled with this account's
+  // details — "Duplicate". The password is fetched (a normal, audited reveal).
+  template?: AccountListItem | null;
   categories: Category[];
   defaultCategoryId?: string;
   onSaved: () => void;
@@ -358,31 +390,45 @@ export function AccountForm({
 }) {
   const editing = existing !== null;
   const { t } = useTranslation();
-  const { arabicEnabled, lang } = useLayout();
+  const { arabicEnabled, lang, currencies } = useLayout();
+  const activeCcys = currencies.filter((c) => c.active && (c.code === "USD" || c.rate > 0));
 
+  const src = existing ?? template;
   const [form, setForm] = useState<NewAccount>({
-    category_id: existing?.category_id ?? defaultCategoryId ?? "",
-    service: existing?.service ?? "",
-    website: existing?.website ?? "",
-    login: existing?.login ?? "",
+    category_id: src?.category_id ?? defaultCategoryId ?? "",
+    service: src?.service ?? "",
+    website: src?.website ?? "",
+    login: src?.login ?? "",
     password: "",
-    billing_period_months: existing?.billing_period_months ?? 0,
-    amount: existing?.amount,
-    next_payment_date: existing?.next_payment_date?.slice(0, 10) ?? "",
-    rotate_every_days: existing?.rotate_every_days,
-    notes: existing?.notes ?? "",
-    seats: existing?.seats ?? [],
-    seats_ar: existing?.seats_ar ?? [],
+    billing_period_months: src?.billing_period_months ?? 0,
+    amount: src?.amount,
+    currency: src?.currency || "USD",
+    next_payment_date: src?.next_payment_date?.slice(0, 10) ?? "",
+    rotate_every_days: src?.rotate_every_days,
+    notes: src?.notes ?? "",
+    seats: src?.seats ?? [],
+    seats_ar: src?.seats_ar ?? [],
   });
   const [error, setError] = useState<string | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   // Billing period as free text so you can clear it and type "0" freely.
-  const [billing, setBilling] = useState(existing ? String(existing.billing_period_months) : "");
+  const [billing, setBilling] = useState(src ? String(src.billing_period_months) : "");
   const billingNum = billing === "" ? 0 : Number(billing);
 
   useEffect(() => {
     listPeople().then(setPeople).catch(() => {});
   }, []);
+
+  // Duplicate: bring the original's password along (unless you've already typed one).
+  const templateId = !existing ? template?.id : undefined;
+  useEffect(() => {
+    if (!templateId) return;
+    let alive = true;
+    revealPassword(templateId)
+      .then((pw) => { if (alive) setForm((f) => (f.password ? f : { ...f, password: pw })); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [templateId]);
 
   // One searchable list of people; each option is searchable by BOTH the English
   // and Arabic name, shows both, and stores the English name as the seat value.
@@ -469,14 +515,23 @@ export function AccountForm({
           />
         </Field>
         <Field label={t("accounts.amountOptional")}>
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            placeholder={t("accounts.amountPlaceholder")}
-            value={form.amount ?? ""}
-            onChange={(e) => set("amount", e.target.value ? Number(e.target.value) : null)}
-          />
+          <div className="amount-row">
+            <select dir="ltr" aria-label={t("payments.currency")} value={form.currency} onChange={(e) => set("currency", e.target.value)}>
+              {activeCcys.map((c) => (
+                <option key={c.code} value={c.code}>{c.code}</option>
+              ))}
+              {/* Keep an out-of-list currency (e.g. one later deactivated) selectable. */}
+              {!activeCcys.some((c) => c.code === form.currency) && <option value={form.currency}>{form.currency}</option>}
+            </select>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder={t("accounts.amountPlaceholder")}
+              value={form.amount ?? ""}
+              onChange={(e) => set("amount", e.target.value ? Number(e.target.value) : null)}
+            />
+          </div>
         </Field>
         <Field label={t("accounts.nextPaymentShort")}>
           <input type="date" value={form.next_payment_date} onChange={(e) => set("next_payment_date", e.target.value)} />

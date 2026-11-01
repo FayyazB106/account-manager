@@ -87,7 +87,7 @@ func upcomingMessage(to Recipient, month time.Time, items []UpcomingItem, conv *
 	label := monthLabel(l, month)
 	total := 0.0
 	for _, it := range items {
-		total += it.Amount
+		total += conv.ToUSD(it.Amount, itemCurrency(it.Currency)) // the total is in USD
 	}
 	w := &body{l: l}
 	w.line(greeting(l, to.Name))
@@ -98,7 +98,7 @@ func upcomingMessage(to Recipient, month time.Time, items []UpcomingItem, conv *
 	w.blank()
 	for _, it := range items {
 		w.line(fmt.Sprintf("  - %s: %s - %s", ltr(l, it.Date.Format("2006-01-02")), who(l, it.Service, it.Login),
-			ltr(l, fmt.Sprintf("$%.2f", it.Amount))))
+			ltr(l, fmtAmount(it.Currency, it.Amount))))
 	}
 	w.blank()
 	w.line(pick(l,
@@ -124,14 +124,26 @@ func reminderMessage(to Recipient, items []DueItem) mailer.Message {
 	w := &body{l: l}
 	w.line(greeting(l, to.Name))
 	w.blank()
-	w.line(pick(l,
-		"These payments are due within the next 7 days or are overdue:",
-		"هذه الدفعات مستحقة خلال الأيام السبعة القادمة أو متأخرة:"))
+	overdue := false
+	for _, it := range items {
+		if it.Days < 0 {
+			overdue = true
+		}
+	}
+	if overdue {
+		w.line(pick(l,
+			"These payments are due within the next 7 days or are overdue:",
+			"هذه الدفعات مستحقة خلال الأيام السبعة القادمة أو متأخرة:"))
+	} else {
+		w.line(pick(l,
+			"These payments are due soon:",
+			"هذه الدفعات مستحقة قريبًا:"))
+	}
 	w.blank()
 	for _, it := range items {
 		text := fmt.Sprintf("  - %s: %s (%s)", iso(l, it.Service), ltr(l, it.Due.Format("2006-01-02")), whenText(l, it.Days))
 		if it.Amount != nil && *it.Amount > 0 {
-			text += " - " + ltr(l, fmt.Sprintf("$%.2f", *it.Amount))
+			text += " - " + ltr(l, fmtAmount(it.Currency, *it.Amount))
 		}
 		w.line(text)
 	}
@@ -159,9 +171,21 @@ func rotationMessage(to Recipient, items []RotationItem) mailer.Message {
 	w := &body{l: l}
 	w.line(greeting(l, to.Name))
 	w.blank()
-	w.line(pick(l,
-		"These passwords are due for rotation within the next 7 days or are overdue:",
-		"كلمات المرور هذه يحين موعد تغييرها خلال الأيام السبعة القادمة أو متأخرة:"))
+	overdue := false
+	for _, it := range items {
+		if it.Days < 0 {
+			overdue = true
+		}
+	}
+	if overdue {
+		w.line(pick(l,
+			"These passwords are due for rotation within the next 7 days or are overdue:",
+			"كلمات المرور هذه يحين موعد تغييرها خلال الأيام السبعة القادمة أو متأخرة:"))
+	} else {
+		w.line(pick(l,
+			"These passwords are due for rotation soon:",
+			"كلمات المرور هذه يحين موعد تغييرها قريبًا:"))
+	}
 	w.blank()
 	for _, it := range items {
 		date := ltr(l, it.Due.Format("2006-01-02"))
@@ -185,4 +209,21 @@ func rotationMessage(to Recipient, items []RotationItem) mailer.Message {
 		Body: w.String(),
 		RTL:  l == LangAR,
 	}
+}
+
+// itemCurrency defaults an unset account currency to USD.
+func itemCurrency(code string) string {
+	if code == "" {
+		return "USD"
+	}
+	return code
+}
+
+// fmtAmount writes an amount in its own currency: "$5.00" for USD, else "SAR 18.75".
+func fmtAmount(code string, amount float64) string {
+	code = itemCurrency(code)
+	if code == "USD" {
+		return fmt.Sprintf("$%.2f", amount)
+	}
+	return fmt.Sprintf("%s %.2f", code, amount)
 }

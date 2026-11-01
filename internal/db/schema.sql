@@ -32,6 +32,7 @@ CREATE TABLE account (
     notes                 TEXT,
     billing_period_months INTEGER NOT NULL DEFAULT 0,
     amount                REAL,
+    currency              TEXT NOT NULL DEFAULT 'USD', -- the currency `amount` is in (each account has its own)
     rotate_every_days     INTEGER,
     status                TEXT NOT NULL DEFAULT 'active'
                           CHECK (status IN ('active', 'inactive')),
@@ -118,6 +119,8 @@ CREATE TABLE admin (
     rotation_reminder_last TEXT NOT NULL DEFAULT '', -- "YYYY-MM-DD" of the last rotation reminder sent (or the baseline at opt-in)
     upcoming_payments  INTEGER NOT NULL DEFAULT 0, -- 1 = email me the month's upcoming payments on the 1st
     upcoming_payments_last TEXT NOT NULL DEFAULT '', -- "YYYY-MM" of the last upcoming-payments email handled (or the baseline at opt-in)
+    payment_reminder_days INTEGER NOT NULL DEFAULT 255, -- which days the payment reminder is sent: bit n = n days before due (0..7); 255 = all
+    rotation_reminder_days INTEGER NOT NULL DEFAULT 255, -- same, for password-rotation reminders
     breach_alerts      INTEGER NOT NULL DEFAULT 0, -- 1 = email me right away when a scan finds a newly breached password
     language           TEXT    NOT NULL DEFAULT 'en', -- the admin's UI language ("en"/"ar"); emails to them are written in it
     created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

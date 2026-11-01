@@ -438,6 +438,9 @@
     "seconds": "seconds",
     "saved": "Saved",
     "currencies": "Currencies",
+    "currencyInUseTitle": "{{code}} is still in use",
+    "currencyInUseText": "These accounts are priced in {{code}}: {{accounts}}. Change their currency first, then you can remove it.",
+    "currencyInUseMore": " and {{count}} more",
     "currenciesHint": "USD is the base. Activate others to convert values — rates refresh daily.",
     "addCurrency": "Add a currency…",
     "deactivate": "Deactivate",
@@ -740,6 +743,8 @@
     "analyzedNotePost": "via k-anonymity — only the first 5 characters of each password's SHA-1 hash are sent, never the password itself."
   },
   "errors": {
+    "currency_in_use": "Some accounts are still priced in this currency. Change their currency first.",
+    "currency_invalid": "The currency must be a 3-letter code.",
     "usd_base_immutable": "USD is the base currency and can't be changed",
     "category_exists": "A category with that name already exists",
     "extend_unavailable": "This account has no payment date or billing period to extend",

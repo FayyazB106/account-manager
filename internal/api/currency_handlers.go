@@ -34,6 +34,20 @@ func (s *Server) setCurrency(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	// A currency that accounts are priced in can't be switched off, or their amounts
+	// would lose their conversion columns and picker entry.
+	if !body.Active {
+		used, err := s.Accounts.ServicesUsingCurrency(r.Context(), code)
+		if err != nil {
+			logErr("setCurrency: check usage", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		if len(used) > 0 {
+			writeError(w, http.StatusConflict, "currency is still used by accounts; change their currency first")
+			return
+		}
+	}
 	if err := s.Currencies.SetActive(r.Context(), code, body.Active); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "currency not found")

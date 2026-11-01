@@ -28,7 +28,7 @@ import { PasswordField } from "./components/PasswordField";
 import { Combobox } from "./components/Combobox";
 import { useLayout } from "./components/Layout";
 import { localCategoryName } from "./categoryName";
-import { amountVariantsFrom } from "./money";
+import { amountParts } from "./money";
 import { FaChevronRight, FaTrash } from "react-icons/fa";
 
 // --- Helpers ---------------------------------------------------------------
@@ -85,6 +85,18 @@ export function rotationDueDate(changedAt: string, everyDays?: number): string |
 function rotationStatus(changedAt: string, everyDays?: number): PaymentStatus {
   const due = rotationDueDate(changedAt, everyDays);
   return due ? paymentStatus(due) : "none";
+}
+
+// AmountText shows an amount in its own currency, with its conversions small and grey in
+// brackets: "SAR 12.00 ($3.20 / EUR 2.90)".
+function AmountText({ amount, code, currencies }: { amount: number; code: string; currencies: Currency[] }) {
+  const { main, others } = amountParts(amount, code, currencies);
+  return (
+    <span dir="ltr">
+      {main}
+      {others && <span className="muted" style={{ fontSize: "0.85em" }}> ({others})</span>}
+    </span>
+  );
 }
 
 // --- Row -------------------------------------------------------------------
@@ -249,7 +261,7 @@ export function AccountGeneral({
                 : <span className="muted">{t("accounts.breachNone")}</span>}</dd>
             </div>
           )}
-          <div><dt>{t("accounts.amount")}</dt><dd>{account.amount != null ? amountVariantsFrom(account.amount, account.currency || "USD", currencies) : "—"}</dd></div>
+          <div><dt>{t("accounts.amount")}</dt><dd>{account.amount != null ? <AmountText amount={account.amount} code={account.currency || "USD"} currencies={currencies} /> : "—"}</dd></div>
           <div>
             <dt>{t("accounts.nextPaymentShort")}</dt>
             <dd>{account.next_payment_date ? <PaymentCell date={account.next_payment_date} /> : "—"}</dd>

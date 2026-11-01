@@ -65,6 +65,18 @@ export async function confirmWithCheckbox(opts: {
   return { confirmed: r.isConfirmed, checked: !!r.value };
 }
 
+// A plain warning with a single OK button (nothing to confirm — just "you can't do that").
+export function warnDialog(title: string, text: string) {
+  return Swal.fire({
+    ...base(),
+    icon: "warning",
+    title,
+    text,
+    confirmButtonColor: theme.accent,
+    iconColor: theme.warn,
+  });
+}
+
 // A brief top-right success toast (used for "copied", etc.).
 export function toast(message: string) {
   const rtl = document.documentElement.dir === "rtl";

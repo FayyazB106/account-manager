@@ -10,7 +10,7 @@ import {
   getBreachStatus, scanBreaches,
   getVersion, checkUpdate, type VersionInfo,
 } from "../api";
-import { confirmDialog, errorAlert, toast } from "../alerts";
+import { confirmDialog, errorAlert, toast, warnDialog } from "../alerts";
 import { confirmAndApplyUpdate } from "../updateFlow";
 import { WEEKDAYS } from "../config";
 import { Button } from "../components/Button";
@@ -401,11 +401,21 @@ function LanguagesSection() {
 
 function CurrenciesSection() {
   const { t } = useTranslation();
-  const { currencies, reloadSettings } = useLayout();
+  const { currencies, accounts, reloadSettings } = useLayout();
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   async function toggle(code: string, active: boolean) {
+    // A currency some account is priced in can't be removed; say which accounts.
+    if (!active) {
+      const users = accounts.filter((a) => (a.currency || "USD") === code).map((a) => a.service);
+      if (users.length > 0) {
+        const shown = users.slice(0, 8).join(", ");
+        const more = users.length > 8 ? t("config.currencyInUseMore", { count: users.length - 8 }) : "";
+        warnDialog(t("config.currencyInUseTitle", { code }), t("config.currencyInUseText", { code, accounts: shown + more }));
+        return;
+      }
+    }
     try { await setCurrencyActive(code, active); reloadSettings(); } catch (e) { setError((e as Error).message); }
   }
 

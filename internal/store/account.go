@@ -540,3 +540,22 @@ func currencyOrUSD(code string) string {
 	}
 	return code
 }
+
+// ServicesUsingCurrency returns the service names of the accounts priced in `code`.
+func (s *AccountStore) ServicesUsingCurrency(ctx context.Context, code string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT service FROM account WHERE currency = $1 ORDER BY lower(service)`, code)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		out = append(out, name)
+	}
+	return out, rows.Err()
+}

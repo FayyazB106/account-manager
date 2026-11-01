@@ -34,15 +34,16 @@ export function withUsdAmounts<T extends { amount?: number | null; currency?: st
   );
 }
 
-// Show an amount in its own currency first, then its conversion into USD and every other
-// active currency, e.g. "SAR 60.00 / $16.00". For a USD amount this is exactly
-// amountVariants ("$16.00 / SAR 60.00").
-export function amountVariantsFrom(amount: number, code: string, currencies: Currency[]): string {
+// An amount split for display: `main` is the amount in its own currency; `others` is its
+// conversion into USD and every other active currency ("$3.20 / EUR 2.90"), which the UI
+// draws small and grey in brackets after it. `others` is empty when there is nothing else
+// to show.
+export function amountParts(amount: number, code: string, currencies: Currency[]): { main: string; others: string } {
   const usd = toUSD(amount, code, currencies);
-  const parts = [fmtMoney(code, amount)];
-  if (code !== "USD") parts.push(fmtMoney("USD", usd));
+  const others: string[] = [];
+  if (code !== "USD") others.push(fmtMoney("USD", usd));
   for (const c of currencies) {
-    if (c.active && c.code !== "USD" && c.code !== code && c.rate > 0) parts.push(`${c.code} ${(usd * c.rate).toFixed(2)}`);
+    if (c.active && c.code !== "USD" && c.code !== code && c.rate > 0) others.push(`${c.code} ${(usd * c.rate).toFixed(2)}`);
   }
-  return parts.join(" / ");
+  return { main: fmtMoney(code, amount), others: others.join(" / ") };
 }

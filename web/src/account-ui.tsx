@@ -91,10 +91,13 @@ function rotationStatus(changedAt: string, everyDays?: number): PaymentStatus {
 // brackets: "SAR 12.00 ($3.20 / EUR 2.90)".
 function AmountText({ amount, code, currencies }: { amount: number; code: string; currencies: Currency[] }) {
   const { main, others } = amountParts(amount, code, currencies);
+  // Each part is its own left-to-right island inside the page's own direction, so in
+  // Arabic the main amount sits at the right (the start of the line) with the
+  // conversions after it to its left, and the brackets stay around the right text.
   return (
-    <span dir="ltr">
-      {main}
-      {others && <span className="muted" style={{ fontSize: "0.85em" }}> ({others})</span>}
+    <span>
+      <bdi dir="ltr">{main}</bdi>
+      {others && <>{" "}<bdi dir="ltr" className="muted" style={{ fontSize: "0.85em" }}>({others})</bdi></>}
     </span>
   );
 }
@@ -241,7 +244,7 @@ export function AccountGeneral({
             </h1>
             {account.website && (
               <a className="website-link" href={withProtocol(account.website)} target="_blank" rel="noreferrer">
-                {account.website}
+                <bdi dir="ltr">{account.website}</bdi>
               </a>
             )}
           </div>

@@ -63,13 +63,14 @@ type Manager struct {
 	db       *sql.DB
 	settings *store.SettingStore
 	audit    store.AuditFunc
+	now      func() time.Time // the clock; tests replace it
 }
 
 func NewManager(dir string, db *sql.DB, settings *store.SettingStore) (*Manager, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	return &Manager{dir: dir, db: db, settings: settings}, nil
+	return &Manager{dir: dir, db: db, settings: settings, now: time.Now}, nil
 }
 
 // SetAuditLogger wires system-event logging for scheduled backups.
@@ -85,7 +86,7 @@ type Info struct {
 // Create writes a new gzipped SQLite snapshot, then applies retention. Returns
 // the new file name.
 func (m *Manager) Create(ctx context.Context) (string, error) {
-	name := "backup-" + time.Now().Format("20060102-150405") + ".db.gz"
+	name := "backup-" + m.now().Format("20060102-150405") + ".db.gz"
 	finalPath := filepath.Join(m.dir, name)
 
 	// VACUUM INTO can't overwrite an existing file, so snapshot to a temp path.
@@ -272,11 +273,18 @@ func (m *Manager) runIfDue() {
 	if freq != "daily" && freq != "weekly" {
 		return
 	}
-	hh, mm, ok := parseHM(all["backup_time"])
+	// The Settings page shows 02:00 until a time is chosen, but only saves it when you edit
+	// it, so an unset time must mean the same 02:00 here or a "Daily" schedule that was
+	// never touched would silently never run.
+	timeSetting := strings.TrimSpace(all["backup_time"])
+	if timeSetting == "" {
+		timeSetting = "02:00"
+	}
+	hh, mm, ok := parseHM(timeSetting)
 	if !ok {
 		return
 	}
-	now := time.Now()
+	now := m.now()
 	sched := time.Date(now.Year(), now.Month(), now.Day(), hh, mm, 0, 0, now.Location())
 	if now.Before(sched) {
 		return

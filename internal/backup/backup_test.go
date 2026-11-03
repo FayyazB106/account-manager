@@ -1,10 +1,13 @@
 package backup
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/FayyazB106/account-manager/internal/db"
+	"github.com/FayyazB106/account-manager/internal/store"
 )
 
 // notCopied are tables intentionally NOT copied back on restore: the forward-only
@@ -53,5 +56,35 @@ func TestRestoreCoversEverySchemaTable(t *testing.T) {
 	}
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A schedule where only the frequency was chosen (the time was never edited, so it was
+// never saved) must still run, at the 02:00 the settings page shows.
+func TestScheduledBackupRunsWithTheDefaultTime(t *testing.T) {
+	d, err := db.Open(filepath.Join(t.TempDir(), "b.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	settings := store.NewSettingStore(d)
+	m, err := NewManager(filepath.Join(t.TempDir(), "backups"), d, settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := settings.Set(context.Background(), "backup_frequency", "daily"); err != nil {
+		t.Fatal(err)
+	}
+
+	day := time.Date(2026, 11, 3, 0, 0, 0, 0, time.Local)
+	m.now = func() time.Time { return day.Add(1*time.Hour + 59*time.Minute) } // 01:59, before 02:00
+	m.runIfDue()
+	if list, _ := m.List(); len(list) != 0 {
+		t.Fatalf("a backup ran before the default 02:00 (%d)", len(list))
+	}
+	m.now = func() time.Time { return day.Add(2 * time.Hour) } // 02:00
+	m.runIfDue()
+	if list, _ := m.List(); len(list) != 1 {
+		t.Fatalf("expected the scheduled backup at the default time, got %d", len(list))
 	}
 }

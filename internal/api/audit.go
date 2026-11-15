@@ -70,6 +70,7 @@ var auditRoutes = []auditRoute{
 	{"PATCH", regexp.MustCompile(`^/accounts/[^/]+/status$`), "account.status"},
 	{"POST", regexp.MustCompile(`^/accounts/[^/]+/extend$`), "account.extend"},
 	{"POST", regexp.MustCompile(`^/accounts/[^/]+/payments$`), "payment.add"},
+	{"POST", regexp.MustCompile(`^/accounts/[^/]+/payments/import$`), "payment.import"},
 	{"PUT", regexp.MustCompile(`^/payments/[^/]+$`), "payment.update"},
 	{"DELETE", regexp.MustCompile(`^/payments/[^/]+$`), "payment.delete"},
 	{"POST", regexp.MustCompile(`^/accounts/[^/]+/totp$`), "account.totp_set"},

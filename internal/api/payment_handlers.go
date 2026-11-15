@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -173,4 +174,73 @@ func (s *Server) deletePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// maxImportRows bounds one payment-history import.
+const maxImportRows = 5000
+
+// importPayments handles POST /accounts/{id}/payments/import with body
+// {"payments": [{paid_on, amount, currency, note}]}: bulk-add payments to the account's history.
+// A row with no currency uses the account's own. Rows the account already has are skipped.
+// Responds {"added": n, "skipped": m}.
+func (s *Server) importPayments(w http.ResponseWriter, r *http.Request) {
+	accountID := r.PathValue("id")
+	var body struct {
+		Payments []paymentInput `json:"payments"`
+	}
+	if err := decodeJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(body.Payments) == 0 {
+		writeError(w, http.StatusBadRequest, "no payments to import")
+		return
+	}
+	if len(body.Payments) > maxImportRows {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("at most %d payments can be imported at once", maxImportRows))
+		return
+	}
+	accCurrency, err := s.Accounts.CurrencyOf(r.Context(), accountID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "account not found")
+		return
+	}
+	if err != nil {
+		logErr("importPayments: account currency", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	ps := make([]store.Payment, 0, len(body.Payments))
+	for i := range body.Payments {
+		in := &body.Payments[i]
+		if strings.TrimSpace(in.Currency) == "" {
+			in.Currency = accCurrency
+		}
+		in.AttachmentID = "" // an import never links invoices
+		p, msg := in.toPayment(accountID)
+		if msg != "" {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("row %d: %s", i+1, msg))
+			return
+		}
+		if p.Amount < 0 {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("row %d: amount can't be negative", i+1))
+			return
+		}
+		if c, ok := normalizeCurrency(p.Currency); ok {
+			p.Currency = c
+		} else {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("row %d: currency must be a 3-letter code", i+1))
+			return
+		}
+		ps = append(ps, *p)
+	}
+
+	added, skipped, err := s.Payments.ImportMany(r.Context(), accountID, ps)
+	if err != nil {
+		logErr("importPayments", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"added": added, "skipped": skipped})
 }

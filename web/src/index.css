@@ -126,7 +126,7 @@ h1 { margin: 0; font-size: 20px; }
 .muted { color: var(--muted); font-size: 14px; margin: 4px 0; }
 .error { color: var(--error); font-size: 14px; }
 
-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+label, .field-group { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 .field-label { font-size: 13px; color: var(--muted); }
 .field-hint { font-size: 12px; color: var(--muted); }
 
@@ -594,6 +594,47 @@ td.nowrap { white-space: nowrap; }
 .accounts tbody tr { -webkit-touch-callout: none; }
 .bulk-actions .muted { font-size: 13px; }
 .user-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+/* Import users dialog: sample sheet + drag-and-drop area. */
+.import-sample { border-collapse: collapse; margin: 14px 0 6px; font-size: 13px; width: max-content; max-width: 100%; }
+.import-sample th, .import-sample td { border: 1px solid var(--border); padding: 5px 12px; text-align: start; }
+.import-sample thead th, .import-sample tbody th { background: var(--surface-2); color: var(--muted); font-weight: 600; text-align: center; }
+.import-rules { margin: 4px 0 12px; padding-inline-start: 18px; font-size: 13px; }
+.import-drop {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 16px; text-align: center;
+  border: 2px dashed var(--border-strong); border-radius: 12px; color: var(--muted); cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.import-drop strong { color: var(--text); }
+.import-drop:hover, .import-drop:focus-visible { border-color: var(--accent); }
+.import-drop.over { border-color: var(--accent); background: var(--accent-bg); }
+.import-preview { margin: 8px 0 0; font-size: 12px; overflow-wrap: anywhere; }
+
+/* Accounts popover next to a user's edit/delete icons. */
+.acct-pop-wrap { position: relative; display: inline-flex; }
+/* The outer layer is invisible and starts right under the icon, with 8px of padding on top;
+   the visible bubble (.acct-pop-box) sits inside it. So there is no gap to cross: moving the
+   pointer from the icon to the bubble stays inside the hovered element. (The scrolling lives
+   on the inner box, because overflow would clip the outer layer's padding.) */
+.acct-pop {
+  position: absolute; top: 100%; inset-inline-end: 0; z-index: 30;
+  padding-top: 8px; display: none;
+}
+.acct-pop-box {
+  min-width: max-content; max-width: 300px; max-height: 260px; overflow-y: auto;
+  padding: 6px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--surface); border: 1px solid var(--accent); border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+.acct-pop-wrap:hover .acct-pop, .acct-pop-wrap:focus-within .acct-pop, .acct-pop.open { display: block; animation: lc-tip-in 0.12s ease-out; }
+.acct-pop-row {
+  display: flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 6px;
+  font-size: 13px; color: var(--text); text-decoration: none; white-space: nowrap;
+}
+.acct-pop-row:hover { background: var(--accent-bg); }
+.acct-pop-row .dot { flex-shrink: 0; }
+.acct-pop-login { font-size: 11px; }
+.acct-pop-empty { padding: 6px 8px; font-size: 13px; white-space: nowrap; }
+.dot-account { background: var(--accent); }
 /* Inline edit row (name + Arabic name + Save/Cancel) must wrap and shrink on
    narrow screens instead of overflowing the row. */
 .user-left .icon-input { flex-wrap: wrap; }

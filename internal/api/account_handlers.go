@@ -75,6 +75,9 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "currency must be a 3-letter code")
 		return
 	}
+	if !s.checkSeats(w, r, &in, "") {
+		return
+	}
 
 	acc := &store.Account{
 		CategoryID:          in.CategoryID,
@@ -254,6 +257,9 @@ func (s *Server) updateAccount(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "currency must be a 3-letter code")
 		return
 	}
+	if !s.checkSeats(w, r, &in, id) {
+		return
+	}
 
 	acc := &store.Account{
 		ID:                  id,
@@ -410,4 +416,32 @@ func normalizeCurrency(code string) (string, bool) {
 		}
 	}
 	return code, true
+}
+
+// checkSeats makes sure every seat on the account is a person in the Users list, and stores
+// each with that person's exact name. Seats an account already has (accountID != "") are
+// grandfathered, so an old free-text seat doesn't block editing the rest of the account.
+// It writes the 400 and returns false when a seat is not allowed.
+func (s *Server) checkSeats(w http.ResponseWriter, r *http.Request, in *createAccountInput, accountID string) bool {
+	var keep []string
+	if accountID != "" {
+		var err error
+		if keep, err = s.Accounts.SeatNames(r.Context(), accountID); err != nil {
+			logErr("checkSeats: current seats", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return false
+		}
+	}
+	names, namesAr, bad, err := s.People.ValidateSeats(r.Context(), in.Seats, in.SeatsAr, keep)
+	if err != nil {
+		logErr("checkSeats", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return false
+	}
+	if len(bad) > 0 {
+		writeError(w, http.StatusBadRequest, "every seat must be a user from the Users list")
+		return false
+	}
+	in.Seats, in.SeatsAr = names, namesAr
+	return true
 }

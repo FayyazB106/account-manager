@@ -3,23 +3,29 @@ import { useTranslation } from "react-i18next";
 import { FaPlus, FaEdit, FaTrash, FaFileInvoiceDollar } from "react-icons/fa";
 import {
   listAccountPayments,
+  importPayments,
   deletePayment,
   downloadAttachment,
   type Payment,
 } from "../api";
 import { useLayout } from "./Layout";
-import { confirmDialog, errorAlert } from "../alerts";
+import { confirmDialog, errorAlert, toast } from "../alerts";
 import { fmtMoney, amountVariants, toUSD } from "../money";
 import { CircleButton } from "./CircleButton";
 import { IconButton } from "./IconButton";
 import { PaymentForm } from "./PaymentForm";
+import { ImportHistoryModal } from "./ImportHistoryModal";
+import { Button } from "./Button";
+import type { PaymentRow } from "../paymentsImport";
 import { Pagination, usePagination } from "./Pagination";
 
 // PaymentHistory is the per-account ledger section: a table of recorded payments
 // (auto-logged on renewal + manual entries) with a total, plus add/edit/delete.
 export function PaymentHistory({ accountId, reloadKey = 0 }: { accountId: string; reloadKey?: number }) {
   const { t } = useTranslation();
-  const { currencies } = useLayout();
+  const { currencies, accounts } = useLayout();
+  const accountCurrency = accounts.find((a) => a.id === accountId)?.currency || "USD";
+  const [importing, setImporting] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Payment | null>(null);
@@ -32,6 +38,15 @@ export function PaymentHistory({ accountId, reloadKey = 0 }: { accountId: string
   // reloadKey lets the parent force a refetch (e.g. after "Mark as paid" auto-logs
   // a payment) even though accountId hasn't changed.
   useEffect(() => { refresh(); }, [refresh, reloadKey]);
+
+  async function runImport(rows: PaymentRow[]) {
+    const res = await importPayments(accountId, rows);
+    setImporting(false);
+    refresh();
+    toast(res.skipped > 0
+      ? t("payments.imported", { count: res.added }) + " " + t("payments.importedSkipped", { count: res.skipped })
+      : t("payments.imported", { count: res.added }));
+  }
 
   async function handleDelete(p: Payment) {
     const ok = await confirmDialog({
@@ -55,7 +70,10 @@ export function PaymentHistory({ accountId, reloadKey = 0 }: { accountId: string
     <div className="card">
       <div className="att-head">
         <strong>{t("payments.title")}</strong>
-        <CircleButton title={t("payments.addTitle")} onClick={() => setAdding(true)}><FaPlus size={15} /></CircleButton>
+        <div className="att-actions" style={{ alignItems: "center" }}>
+          <Button onClick={() => setImporting(true)}>{t("payments.importButton")}</Button>
+          <CircleButton title={t("payments.addTitle")} onClick={() => setAdding(true)}><FaPlus size={15} /></CircleButton>
+        </div>
       </div>
 
       {payments.length === 0 ? (
@@ -115,6 +133,14 @@ export function PaymentHistory({ accountId, reloadKey = 0 }: { accountId: string
             </li>
           ))}
         </ul>
+      )}
+
+      {importing && (
+        <ImportHistoryModal
+          accountCurrency={accountCurrency}
+          onImport={runImport}
+          onClose={() => setImporting(false)}
+        />
       )}
 
       {adding && (

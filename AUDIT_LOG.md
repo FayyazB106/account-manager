@@ -48,6 +48,7 @@ timestamp, actor, action, target, ip, result[, detail]
 | `account.status` | Account activated / deactivated. |
 | `account.extend` | Renewal/expiry date rolled forward one billing period (via "Mark as paid"). |
 | `payment.add` | A payment was added to an account's history. |
+| `payment.import` | Payments were imported into an account's history from a file (Import History). |
 | `payment.update` | A recorded payment was edited. |
 | `payment.delete` | A recorded payment was deleted. |
 | `account.reveal` | A stored password was revealed. |

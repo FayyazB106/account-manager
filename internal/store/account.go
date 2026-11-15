@@ -559,3 +559,31 @@ func (s *AccountStore) ServicesUsingCurrency(ctx context.Context, code string) (
 	}
 	return out, rows.Err()
 }
+
+// SeatNames returns the seat names currently on an account.
+func (s *AccountStore) SeatNames(ctx context.Context, accountID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT user_name FROM account_user WHERE account_id = $1 ORDER BY position`, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+// CurrencyOf returns an account's currency (ErrNotFound if there is no such account).
+func (s *AccountStore) CurrencyOf(ctx context.Context, id string) (string, error) {
+	var code string
+	err := s.db.QueryRowContext(ctx, `SELECT currency FROM account WHERE id = $1`, id).Scan(&code)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return code, err
+}

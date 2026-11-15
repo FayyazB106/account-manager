@@ -102,6 +102,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /accounts/{id}/reveal", s.requireAuth(s.revealAccount))
 	mux.HandleFunc("GET /accounts/{id}/payments", s.requireAuth(s.listAccountPayments))
 	mux.HandleFunc("POST /accounts/{id}/payments", s.requireAuth(s.createPayment))
+	mux.HandleFunc("POST /accounts/{id}/payments/import", s.requireAuth(s.importPayments))
 	mux.HandleFunc("GET /payments", s.requireAuth(s.listAllPayments))
 	mux.HandleFunc("PUT /payments/{id}", s.requireAuth(s.updatePayment))
 	mux.HandleFunc("DELETE /payments/{id}", s.requireAuth(s.deletePayment))
@@ -250,9 +251,10 @@ var errorCodes = map[string]string{
 	"attachment not found":                       "attachment_not_found",
 	"billing_period_months must be 0 or greater": "billing_invalid",
 	"cannot delete a category that still has accounts; move or remove them first": "category_in_use",
-	"cannot delete the last admin": "last_admin",
-	"category not found":           "category_not_found",
-	"currency not found":           "currency_not_found",
+	"cannot delete the last admin":                                    "last_admin",
+	"category not found":                                              "category_not_found",
+	"every seat must be a user from the Users list":                   "seat_not_user",
+	"currency not found":                                              "currency_not_found",
 	"currency is still used by accounts; change their currency first": "currency_in_use",
 	"currency must be a 3-letter code":                                "currency_invalid",
 	"current password is incorrect":                                   "current_password_wrong",

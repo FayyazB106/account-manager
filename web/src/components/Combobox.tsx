@@ -75,7 +75,13 @@ export function Combobox({
   }
 
   return (
-    <div className="combo" ref={ref}>
+    <div
+      className="combo"
+      ref={ref}
+      // Close as soon as focus leaves the box (a click on anything else, or Tab). Focus moving
+      // into the list itself (its scrollbar) doesn't count as leaving.
+      onBlur={(e) => { if (!ref.current?.contains(e.relatedTarget as Node | null)) setOpen(false); }}
+    >
       <input
         value={value}
         placeholder={placeholder}
@@ -88,7 +94,7 @@ export function Combobox({
         aria-autocomplete="list"
       />
       {open && filtered.length > 0 && (
-        <ul className="combo-list" ref={listRef} role="listbox">
+        <ul className="combo-list" ref={listRef} role="listbox" tabIndex={-1}>
           {filtered.map((o, i) => (
             <li
               key={o.value}

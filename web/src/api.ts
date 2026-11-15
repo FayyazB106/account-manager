@@ -362,6 +362,13 @@ export function listAccountPayments(accountId: string) {
 export function addPayment(accountId: string, p: PaymentInput) {
   return request<{ id: string }>(`/accounts/${accountId}/payments`, { method: "POST", body: JSON.stringify(p) });
 }
+// Bulk-adds payments to an account's history (rows the account already has are skipped).
+export function importPayments(accountId: string, payments: { paid_on: string; amount: number; currency?: string; note?: string }[]) {
+  return request<{ added: number; skipped: number }>(`/accounts/${accountId}/payments/import`, {
+    method: "POST",
+    body: JSON.stringify({ payments }),
+  });
+}
 export function updatePayment(id: string, p: PaymentInput) {
   return request<{ status: string }>(`/payments/${id}`, { method: "PUT", body: JSON.stringify(p) });
 }

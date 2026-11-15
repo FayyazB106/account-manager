@@ -119,7 +119,7 @@ export function PaymentForm({
           <Field label={t("payments.paidOn")}>
             <input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} required />
           </Field>
-          <Field label={t("payments.amountCurrency")}>
+          <Field group label={t("payments.amountCurrency")}>
             <div className="amount-row">
               <select dir="ltr" aria-label={t("payments.currency")} value={currency} onChange={(e) => setCurrency(e.target.value)}>
                 {activeCcys.map((c) => (
@@ -138,7 +138,7 @@ export function PaymentForm({
               />
             </div>
           </Field>
-          <Field label={t("payments.invoice")} full>
+          <Field group label={t("payments.invoice")} full>
             <div className="invoice-row">
               <select value={attachmentId} onChange={(e) => setAttachmentId(e.target.value)}>
                 <option value="">{t("payments.noInvoice")}</option>

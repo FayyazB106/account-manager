@@ -33,7 +33,7 @@ npx tsc --noEmit   # type-check only
   (including its password, fetched like a normal reveal, so it appears in the audit log).
 - **Account 2FA**: store a service's TOTP secret (paste key/URI or **scan the QR
   with the camera**) and show live codes.
-- **Categories, Users (people)/seats, Admins** management under Settings.
+- **Categories, Users (people)/seats, Admins** management under Settings. Each user row lists the accounts that person has a seat on (links to the accounts; seats are matched by the person's name, which the server keeps in sync on rename). Seats must be people from the Users list: the account form refuses a typed name that isn't one, and the server enforces it too (`PersonStore.ValidateSeats`, case-insensitive, stored with the person's exact name; seats an account already had stay allowed so old free-text seats don't block edits). Imports in the app: Settings → Users → Import Users, and an account's Payments tab → Import History (`ImportHistoryModal`, parsing in `paymentsImport.ts`: A date, B amount, C currency, D note; server side `POST /accounts/{id}/payments/import` skips rows the account already has). Users import: a dialog (`ImportUsersModal`, parsing in `peopleImport.ts`) that shows the expected layout (English name in column A, Arabic name in column B when Arabic support is on, no header row), takes the file by drag and drop or a picker, previews what it found, and imports on confirm. `.xlsx`, `.xls` and `.csv` (read as UTF-8) are supported.
 - **Vault Health** (weak/reused/old + Have I Been Pwned check), **Finance**
   (accounts table with filters, calendar, monthly-cost graph), **dashboard** tiles.
 - **Updates**: in-app "update available" banner + one-click update (desktop).

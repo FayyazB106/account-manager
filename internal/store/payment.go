@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -163,4 +164,58 @@ func (s *PaymentStore) AccountOf(ctx context.Context, id string) (string, error)
 		return "", ErrNotFound
 	}
 	return acc, err
+}
+
+// ImportMany adds payments to one account in a single transaction (all or nothing). A row
+// that matches a payment the account already has (same date, amount and currency) is skipped,
+// so importing the same file twice does not double the history. Imported rows are ordinary
+// manual payments. Returns how many were added and how many were skipped as already present.
+func (s *PaymentStore) ImportMany(ctx context.Context, accountID string, ps []Payment) (added, skipped int, err error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback()
+
+	key := func(day string, amount float64, currency string) string {
+		return fmt.Sprintf("%s|%.2f|%s", day, amount, currency)
+	}
+	existing := map[string]bool{}
+	rows, err := tx.QueryContext(ctx, `SELECT strftime('%Y-%m-%d', paid_on), amount, currency FROM payment WHERE account_id = $1`, accountID)
+	if err != nil {
+		return 0, 0, err
+	}
+	for rows.Next() {
+		var day, cur string
+		var amount float64
+		if err := rows.Scan(&day, &amount, &cur); err != nil {
+			rows.Close()
+			return 0, 0, err
+		}
+		existing[key(day, amount, cur)] = true
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, 0, err
+	}
+	rows.Close()
+
+	for i := range ps {
+		p := &ps[i]
+		if existing[key(p.PaidOn.Format("2006-01-02"), p.Amount, p.Currency)] {
+			skipped++
+			continue
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO payment (account_id, paid_on, amount, currency, note, source)
+			 VALUES ($1, $2, $3, $4, $5, 'manual')`,
+			accountID, dateParam(&p.PaidOn), p.Amount, p.Currency, p.Note); err != nil {
+			return 0, 0, err
+		}
+		added++
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, 0, err
+	}
+	return added, skipped, nil
 }

@@ -23,7 +23,7 @@ import { AccountTOTP } from "./components/AccountTOTP";
 import { PaymentForm } from "./components/PaymentForm";
 import { IconButton } from "./components/IconButton";
 import { Icon } from "./icons";
-import { confirmDialog, errorAlert, toast } from "./alerts";
+import { confirmDialog, errorAlert, toast, warnDialog } from "./alerts";
 import { PasswordField } from "./components/PasswordField";
 import { Combobox } from "./components/Combobox";
 import { useLayout } from "./components/Layout";
@@ -458,7 +458,8 @@ export function AccountForm({
   function onSeat(i: number, v: string) {
     // Only match a person for non-empty input — otherwise "" matches the first
     // person whose (name_ar ?? "") is "", refilling a field you just cleared.
-    const p = v ? people.find((x) => x.name === v || x.name_ar === v) : undefined;
+    const key = v.trim().toLowerCase();
+    const p = key ? people.find((x) => x.name.trim().toLowerCase() === key || (x.name_ar ?? "").trim().toLowerCase() === key) : undefined;
     setForm((f) => {
       const seats = [...(f.seats ?? [])];
       const seatsAr = [...(f.seats_ar ?? [])];
@@ -482,6 +483,20 @@ export function AccountForm({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    // Every seat must be someone from the Users list (picked, not made up). Seats the account
+    // already had stay allowed, so an old free-text seat doesn't block editing the rest.
+    const had = new Set((src?.seats ?? []).map((n) => n.trim().toLowerCase()));
+    const isUser = (n: string) =>
+      people.some((x) => x.name.trim().toLowerCase() === n || (x.name_ar ?? "").trim().toLowerCase() === n);
+    const bad = (form.seats ?? [])
+      .map((n, i) => ({ i, name: n.trim() }))
+      .filter(({ name }) => name !== "" && !isUser(name.toLowerCase()) && !had.has(name.toLowerCase()));
+    if (bad.length > 0) {
+      warnDialog(t("accounts.seatNotInList"), t("accounts.seatNotUser", { names: bad.map((b) => b.name).join(", ") }));
+      return;
+    }
+
     try {
       const payload: NewAccount = { ...form, billing_period_months: billingNum };
       if (!payload.website) delete payload.website;
@@ -529,7 +544,7 @@ export function AccountForm({
             onChange={(e) => setBilling(e.target.value.replace(/[^0-9]/g, ""))}
           />
         </Field>
-        <Field label={t("accounts.amountOptional")}>
+        <Field group label={t("accounts.amountOptional")}>
           <div className="amount-row">
             <select dir="ltr" aria-label={t("payments.currency")} value={form.currency} onChange={(e) => set("currency", e.target.value)}>
               {activeCcys.map((c) => (
@@ -567,7 +582,7 @@ export function AccountForm({
           required={!editing}
           full
         />
-        <Field label={`${t("accounts.seats")}${form.seats?.length ? ` (${form.seats.length})` : ""} — ${t("common.optional")}`} full>
+        <Field group label={`${t("accounts.seats")}${form.seats?.length ? ` (${form.seats.length})` : ""} — ${t("common.optional")}`} full>
           <div className="seats">
             {(form.seats ?? []).map((_, i) => (
               <div className="seat-row" key={i}>

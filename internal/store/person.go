@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 )
 
 // Person is someone who occupies account seats (not an admin/login).
@@ -150,4 +151,51 @@ func deletePersonTx(ctx context.Context, tx *sql.Tx, id string) error {
 	}
 	_, err := tx.ExecContext(ctx, `DELETE FROM person WHERE id = $1`, id)
 	return err
+}
+
+// ValidateSeats checks that every non-blank seat name is a person in the Users list. A name
+// matches ignoring case and surrounding spaces, and is then stored with the person's exact
+// name (and their Arabic name when the seat has none), so seats and people always agree.
+// `keep` lists seat names an account already has: those stay as they are even if they are not
+// in the Users list, so old free-text seats don't block editing the rest of the account.
+// Returns the names/Arabic names to store (same positions) and the names that are not allowed.
+func (s *PersonStore) ValidateSeats(ctx context.Context, names []string, namesAr []*string, keep []string) (outNames []string, outAr []*string, bad []string, err error) {
+	people, err := s.List(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	byName := map[string]Person{}
+	for _, p := range people {
+		key := strings.ToLower(strings.TrimSpace(p.Name))
+		if _, dup := byName[key]; !dup {
+			byName[key] = p
+		}
+	}
+	kept := map[string]bool{}
+	for _, k := range keep {
+		kept[strings.ToLower(strings.TrimSpace(k))] = true
+	}
+
+	outNames = make([]string, len(names))
+	outAr = make([]*string, len(names))
+	for i, raw := range names {
+		outNames[i] = raw
+		if i < len(namesAr) {
+			outAr[i] = namesAr[i]
+		}
+		name := strings.TrimSpace(raw)
+		if name == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if p, ok := byName[key]; ok {
+			outNames[i] = p.Name
+			if outAr[i] == nil || strings.TrimSpace(*outAr[i]) == "" {
+				outAr[i] = p.NameAr
+			}
+		} else if !kept[key] {
+			bad = append(bad, name)
+		}
+	}
+	return outNames, outAr, bad, nil
 }

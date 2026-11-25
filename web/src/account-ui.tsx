@@ -127,14 +127,18 @@ function longPress(onMenu: (x: number, y: number) => void) {
   };
 }
 
+// "Pending": an active, recurring account whose payment date has passed (the orange
+// "sub lapsed" dot). Free and one-time accounts are never lapsed.
+export function isLapsed(a: AccountListItem): boolean {
+  return a.status === "active" && a.billing_period_months > 0 && paymentStatus(a.next_payment_date) === "overdue";
+}
+
 export function AccountRow({ account, onOpen, onMenu }: { account: AccountListItem; onOpen: () => void; onMenu?: (x: number, y: number) => void }) {
   const { t } = useTranslation();
   const { lang, categories: allCategories } = useLayout();
   const catName = localCategoryName(allCategories, account.category_id, account.category_name, lang);
   const isActive = account.status === "active";
-  const lapsed =
-    account.billing_period_months > 0 &&
-    paymentStatus(account.next_payment_date) === "overdue";
+  const lapsed = isLapsed(account);
   const seats = lang === "ar"
     ? account.seats.map((s, i) => (account.seats_ar?.[i] ? account.seats_ar[i]! : s))
     : account.seats;

@@ -25,7 +25,7 @@ npx tsc --noEmit   # type-check only
 - **Auth**: browser-based first-run setup + unlock; login (+ optional TOTP). The
   access token is **in memory only** (never in web storage); a long-lived refresh
   lives in an httpOnly cookie and is exchanged silently on startup / 401.
-- **Accounts**: list with search + status/payment/rotation filters + sortable
+- **Accounts**: list with search + status/payment/rotation filters (the status filter includes **Pending**: active recurring accounts whose payment is overdue, the orange dot) + sortable
   columns; detail view; add/edit form; reveal/copy; extend/activate/deactivate;
   each account has its own currency (`account.currency`; anything that adds amounts up passes the
   accounts through `withUsdAmounts` in `money.ts` first);

@@ -580,6 +580,7 @@
     "optDue": "Due",
     "optOverdue": "Overdue",
     "optSoon": "Due soon",
+    "optPending": "Pending",
     "add": "Add account",
     "duplicate": "Duplicate",
     "newAccount": "New account",

@@ -632,6 +632,7 @@
     "optDue": "مستحقة",
     "optOverdue": "متأخرة",
     "optSoon": "قريبة",
+    "optPending": "معلّق",
     "add": "إضافة حساب",
     "duplicate": "تكرار",
     "newAccount": "حساب جديد",

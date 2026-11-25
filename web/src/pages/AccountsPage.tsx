@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useLayout } from "../components/Layout";
 import { Button } from "../components/Button";
 import { CircleButton } from "../components/CircleButton";
-import { AccountRow, AccountForm, rotationDueDate, paymentStatus } from "../account-ui";
+import { AccountRow, AccountForm, isLapsed, rotationDueDate, paymentStatus } from "../account-ui";
 import { ContextMenu } from "../components/ContextMenu";
 import { FaRegClone } from "react-icons/fa";
 import type { AccountListItem } from "../api";
@@ -73,7 +73,8 @@ export function AccountsPage() {
 
   const filtered = useMemo(() => {
     let list = categoryId ? accounts.filter((a) => a.category_id === categoryId) : accounts;
-    if (fStatus) list = list.filter((a) => a.status === fStatus);
+    if (fStatus === "action") list = list.filter(isLapsed);
+    else if (fStatus) list = list.filter((a) => a.status === fStatus);
     if (fPayment) list = list.filter((a) => statusMatches(fPayment, paymentStatus(a.next_payment_date)));
     if (fRotation) list = list.filter((a) => statusMatches(fRotation, paymentStatus(rotationDueDate(a.password_changed_at, a.rotate_every_days) ?? undefined)));
     if (fPayDate) list = list.filter((a) => (a.next_payment_date ?? "").slice(0, 10) === fPayDate);
@@ -146,6 +147,7 @@ export function AccountsPage() {
           <option value="">{t("accounts.fStatus")}: {t("accounts.filterAll")}</option>
           <option value="active">{t("accounts.active")}</option>
           <option value="inactive">{t("accounts.inactive")}</option>
+          <option value="action">{t("accounts.optPending")}</option>
         </select>
         <select dir="ltr" value={fPayment} onChange={(e) => setParam("payment", e.target.value)}>
           <option value="">{t("accounts.fPayment")}: {t("accounts.filterAll")}</option>
